@@ -974,6 +974,31 @@ document.addEventListener('DOMContentLoaded', async () => {
       alert('No data available to export.');
       return;
     }
+    
+    // Calculate Insights for Executive Summary
+    const totalFilteredScans = filteredScans.length;
+    const totalFilteredB5 = filteredScans.filter(s => s.uom === 'B5').length;
+    const totalFilteredB10 = filteredScans.filter(s => s.uom === 'B10').length;
+    const totalCalculatedBoxes = (totalFilteredB5 * 0.5) + (totalFilteredB10 * 1.0);
+    const uniqueRetailers = new Set(filteredScans.map(s => s.status_retailer_id || s.retailer_id)).size;
+    const uniqueDays = Math.max(1, new Set(filteredScans.map(s => s.scan_date || (s.retailer_scanned_at ? String(s.retailer_scanned_at).slice(0, 10) : ''))).size);
+    
+    const startStr = elFilterStartDate && elFilterStartDate.value ? elFilterStartDate.value : '2026-07-01';
+    const endStr = elFilterEndDate && elFilterEndDate.value ? elFilterEndDate.value : '2026-07-31';
+
+    const exec_data = [
+      ["JGH Retailer Scan Intelligence - Dynamic Filtered Insights"],
+      [`Filtered Date Range: ${startStr} to ${endStr}`],
+      [""],
+      ["Core Business KPI", "Key Metric Value", "Description"],
+      ["Total QR Scans Registered", totalFilteredScans, "Total scan events matching current filters"],
+      ["Total Box Units Scanned", totalCalculatedBoxes, "B5=0.5 Box, B10=1.0 Box"],
+      ["Active Scanning Retailers", uniqueRetailers, "Unique active retailers in this dataset"],
+      ["B5 Package Scans", totalFilteredB5, "Count of 5-piece packs"],
+      ["B10 Package Scans", totalFilteredB10, "Count of 10-piece packs"],
+      ["Average Scans / Day", (totalFilteredScans / uniqueDays).toFixed(2), "Based on days active in filtered date range"]
+    ];
+
     const ws_data = filteredScans.map(row => ({
       Retailer_ID: row.status_retailer_id || row.retailer_id || '',
       Retailer_Name: row.retailer_name || '',
@@ -991,11 +1016,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     }));
     
     const wb = XLSX.utils.book_new();
+    const ws_exec = XLSX.utils.aoa_to_sheet(exec_data);
     const ws = XLSX.utils.json_to_sheet(ws_data);
+    XLSX.utils.book_append_sheet(wb, ws_exec, "Executive_Summary");
     XLSX.utils.book_append_sheet(wb, ws, "Filtered_Scans");
     
-    const startStr = elFilterStartDate && elFilterStartDate.value ? elFilterStartDate.value : '2026-07-01';
-    const endStr = elFilterEndDate && elFilterEndDate.value ? elFilterEndDate.value : '2026-07-31';
     XLSX.writeFile(wb, `Retailer_Scans_${startStr}_to_${endStr}.xlsx`);
   }
 
@@ -1005,9 +1030,28 @@ document.addEventListener('DOMContentLoaded', async () => {
       alert('No data available to export.');
       return;
     }
+
+    const totalFilteredScans = filteredScans.length;
+    const totalFilteredB5 = filteredScans.filter(s => s.uom === 'B5').length;
+    const totalFilteredB10 = filteredScans.filter(s => s.uom === 'B10').length;
+    const totalCalculatedBoxes = (totalFilteredB5 * 0.5) + (totalFilteredB10 * 1.0);
+    const uniqueRetailers = new Set(filteredScans.map(s => s.status_retailer_id || s.retailer_id)).size;
+    const startStr = elFilterStartDate && elFilterStartDate.value ? elFilterStartDate.value : '2026-07-01';
+    const endStr = elFilterEndDate && elFilterEndDate.value ? elFilterEndDate.value : '2026-07-31';
+
+    let csv = `=== DYNAMIC FILTERED INSIGHTS ===\n`;
+    csv += `Date Range:,${startStr} to ${endStr}\n`;
+    csv += `Total Scans:,${totalFilteredScans}\n`;
+    csv += `Calculated Boxes:,${totalCalculatedBoxes}\n`;
+    csv += `Active Retailers:,${uniqueRetailers}\n`;
+    csv += `B5 Scans:,${totalFilteredB5}\n`;
+    csv += `B10 Scans:,${totalFilteredB10}\n`;
+    csv += `\n=== RAW DATA ===\n`;
+
     const headers = ["retailer_id", "status_retailer_id", "retailer_name", "mobile_number", "pincode", "city", "State_Name", "Category_Name", "sku_code", "uom", "mrp", "unit_price", "Box_count", "retailer_scanned_at", "scan_date"];
-    let csv = headers.join(',') + '\n';
+    csv += headers.join(',') + '\n';
     filteredScans.forEach(row => {
+      row.Box_count = row.uom === 'B5' ? 0.5 : 1.0;
       const line = headers.map(h => `"${String(row[h] !== undefined ? row[h] : '').replace(/"/g, '""')}"`).join(',');
       csv += line + '\n';
     });
@@ -1015,8 +1059,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    const startStr = elFilterStartDate && elFilterStartDate.value ? elFilterStartDate.value : '2026-07-01';
-    const endStr = elFilterEndDate && elFilterEndDate.value ? elFilterEndDate.value : '2026-07-31';
     link.download = `Retailer_Scans_${startStr}_to_${endStr}.csv`;
     link.click();
   }
