@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JGH Retailer Scan Intelligence & Executive Business Insights Dashboard</title>
+  <meta name="description" content="Executive business analytics dashboard for retail scan data, state-wise performance, retailer engagement, and category trends.">
+  <!-- Google Fonts: Inter & Outfit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="theme-dark">
+  <div class="dashboard-wrapper">
+    
+    <!-- Top Navigation Header -->
+    <header class="top-nav">
+      <div class="nav-brand">
+        <div class="brand-icon">
+          <i class="fa-solid fa-chart-line-up"></i>
+        </div>
+        <div class="brand-text">
+          <h1>JGH Scan Intelligence <span>Dashboard</span></h1>
+          <p class="subtitle">Executive Business Insights & Retailer Performance • July 2026</p>
+        </div>
+      </div>
+
+      <div class="nav-controls">
+        <div class="date-badge">
+          <i class="fa-regular fa-calendar-days"></i>
+          <span>July 01 – July 31, 2026</span>
+        </div>
+        
+        <button id="btnExportExcel" class="btn btn-outline" title="Download Full Multi-Sheet Excel Workbook">
+          <i class="fa-solid fa-file-excel text-success"></i> Export Excel
+        </button>
+
+        <button id="btnExportCSV" class="btn btn-outline" title="Export Current View as CSV">
+          <i class="fa-solid fa-file-csv text-primary"></i> Export CSV
+        </button>
+
+        <button id="btnPrint" class="btn btn-outline" title="Print Executive Summary">
+          <i class="fa-solid fa-print"></i> Print
+        </button>
+
+        <button id="btnThemeToggle" class="btn btn-icon" title="Toggle Light/Dark Theme">
+          <i class="fa-solid fa-sun" id="themeIcon"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- Executive Business Insights Callout Banner -->
+    <section class="insights-banner">
+      <div class="banner-header">
+        <div class="banner-title">
+          <i class="fa-solid fa-lightbulb-on text-amber"></i>
+          <h3>Executive Business Insights & Key Takeaways (For Non-Tech Stakeholders)</h3>
+        </div>
+        <span class="badge badge-glow">Automated Intelligence</span>
+      </div>
+      
+      <div class="insights-grid">
+        <div class="insight-card">
+          <div class="insight-icon bg-blue-soft">
+            <i class="fa-solid fa-gauge-high text-blue"></i>
+          </div>
+          <div class="insight-content">
+            <h4>Scanning Velocity</h4>
+            <p>National average of <strong id="insDailyAvg">249.0 scans/day</strong> with <strong id="insRetailerAvg">30.9 scans per retailer</strong>. Activity peaked on <strong id="insPeakDay">July 19</strong>.</p>
+          </div>
+        </div>
+
+        <div class="insight-card">
+          <div class="insight-icon bg-emerald-soft">
+            <i class="fa-solid fa-map-location-dot text-emerald"></i>
+          </div>
+          <div class="insight-content">
+            <h4>Geographic Leadership</h4>
+            <p><strong id="insTopStateVol">Uttar Pradesh</strong> leads in total volume (<span id="insTopStateVolShare">18.2%</span> share), while <strong id="insTopStateInt">Andhra Pradesh</strong> retailers have the highest average scanning intensity (<span id="insTopStateIntAvg">42.5</span> scans/retailer).</p>
+          </div>
+        </div>
+
+        <div class="insight-card">
+          <div class="insight-icon bg-purple-soft">
+            <i class="fa-solid fa-box-open text-purple"></i>
+          </div>
+          <div class="insight-content">
+            <h4>Category & Packaging</h4>
+            <p><strong id="insTopCategory">Comfy Trunk & Briefs</strong> is the most scanned category (<span id="insTopCatShare">22.4%</span>). Box Packaging (UOM B5) accounts for <strong id="insBoxRatio">58.2%</strong> of all verification scans.</p>
+          </div>
+        </div>
+
+        <div class="insight-card">
+          <div class="insight-icon bg-amber-soft">
+            <i class="fa-solid fa-users-crown text-amber"></i>
+          </div>
+          <div class="insight-content">
+            <h4>Retailer Engagement (Pareto)</h4>
+            <p>The top <strong>20% Power Retailers</strong> drive <strong id="insPareto">48.9%</strong> of all scanning activity. Loyalty programs should focus on nurturing the 45% Bronze-tier retailers.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Key Metrics Cards Row -->
+    <section class="kpi-grid">
+      <div class="kpi-card border-top-blue">
+        <div class="kpi-meta">
+          <span class="kpi-label">TOTAL QR SCANS</span>
+          <span class="kpi-pill pill-blue"><i class="fa-solid fa-arrow-up"></i> Query 1</span>
+        </div>
+        <div class="kpi-value" id="kpiTotalScans">--</div>
+        <div class="kpi-sub">July 1 – July 31, 2026 Volume</div>
+      </div>
+
+      <div class="kpi-card border-top-emerald">
+        <div class="kpi-meta">
+          <span class="kpi-label">CALCULATED BOX COUNT</span>
+          <span class="kpi-pill pill-emerald"><i class="fa-solid fa-boxes-stacked"></i> B5=0.5 | B10=1.0</span>
+        </div>
+        <div class="kpi-value" id="kpiTotalBoxes">--</div>
+        <div class="kpi-sub" id="kpiBoxShareSub">-- Total Box Units</div>
+      </div>
+
+      <div class="kpi-card border-top-indigo">
+        <div class="kpi-meta">
+          <span class="kpi-label">ACTIVE RETAILERS</span>
+          <span class="kpi-pill pill-indigo"><i class="fa-solid fa-store"></i> Coverage</span>
+        </div>
+        <div class="kpi-value" id="kpiTotalRetailers">--</div>
+        <div class="kpi-sub">Unique Scanning Outlets</div>
+      </div>
+
+      <div class="kpi-card border-top-amber">
+        <div class="kpi-meta">
+          <span class="kpi-label">AVG SCANS / DAY</span>
+          <span class="kpi-pill pill-amber"><i class="fa-solid fa-gauge-high"></i> Velocity</span>
+        </div>
+        <div class="kpi-value" id="kpiAvgPerDay">--</div>
+        <div class="kpi-sub">Daily Scanning Run-Rate</div>
+      </div>
+
+      <div class="kpi-card border-top-purple">
+        <div class="kpi-meta">
+          <span class="kpi-label">AVG SCANS / RETAILER</span>
+          <span class="kpi-pill pill-purple"><i class="fa-solid fa-user-check"></i> Intensity</span>
+        </div>
+        <div class="kpi-value" id="kpiAvgPerRetailer">--</div>
+        <div class="kpi-sub">Per Active Outlet</div>
+      </div>
+
+      <div class="kpi-card border-top-rose">
+        <div class="kpi-meta">
+          <span class="kpi-label">TOP CATEGORY</span>
+          <span class="kpi-pill pill-rose"><i class="fa-solid fa-crown"></i> Leader</span>
+        </div>
+        <div class="kpi-value kpi-value-sm" id="kpiTopCategory">--</div>
+        <div class="kpi-sub" id="kpiTopCatScans">-- Scans</div>
+      </div>
+    </section>
+
+    <!-- Interactive Filters & Controls Bar -->
+    <section class="filters-section">
+      <div class="filters-header">
+        <div class="filter-title">
+          <i class="fa-solid fa-sliders"></i>
+          <span>Interactive Data Filters</span>
+        </div>
+        <button id="btnResetFilters" class="btn btn-sm btn-ghost">
+          <i class="fa-solid fa-arrow-rotate-left"></i> Reset All Filters
+        </button>
+      </div>
+
+      <div class="filters-grid">
+        <div class="filter-item date-filter-item">
+          <label for="filterStartDate"><i class="fa-solid fa-calendar-days"></i> From Date</label>
+          <input type="date" id="filterStartDate" value="2026-07-01" min="2026-07-01" max="2026-07-31">
+        </div>
+
+        <div class="filter-item date-filter-item">
+          <label for="filterEndDate"><i class="fa-solid fa-calendar-day"></i> To Date</label>
+          <input type="date" id="filterEndDate" value="2026-07-31" min="2026-07-01" max="2026-07-31">
+        </div>
+
+        <div class="filter-item">
+          <label for="filterState"><i class="fa-solid fa-location-dot"></i> State Filter</label>
+          <select id="filterState">
+            <option value="ALL">All States (National)</option>
+          </select>
+        </div>
+
+        <div class="filter-item">
+          <label for="filterCategory"><i class="fa-solid fa-tag"></i> Product Category</label>
+          <select id="filterCategory">
+            <option value="ALL">All Categories</option>
+          </select>
+        </div>
+
+        <div class="filter-item">
+          <label for="filterUOM"><i class="fa-solid fa-box"></i> Packaging UOM</label>
+          <select id="filterUOM">
+            <option value="ALL">All Packaging (B5 & B10)</option>
+            <option value="B5">Box of 5 (B5 = 0.5 Box)</option>
+            <option value="B10">Box of 10 (B10 = 1.0 Box)</option>
+          </select>
+        </div>
+
+        <div class="filter-item search-item">
+          <label for="searchQuery"><i class="fa-solid fa-magnifying-glass"></i> Search Retailer / City</label>
+          <div class="search-input-wrapper">
+            <input type="text" id="searchQuery" placeholder="Search by name, mobile, city, pincode...">
+            <button id="btnClearSearch" class="btn-clear"><i class="fa-solid fa-xmark"></i></button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Visual Charts Dashboard Grid -->
+    <section class="charts-grid">
+      <!-- Chart 1: Daily Scanning Trend (Full Width) -->
+      <div class="chart-card span-full">
+        <div class="chart-card-header">
+          <div>
+            <h3><i class="fa-solid fa-chart-line text-blue"></i> Daily Scanning Volume & Moving Velocity (July 2026)</h3>
+            <p class="chart-subtitle">Day-by-day scan distribution with B5 (0.5 Box) vs B10 (1.0 Box) breakdown and 7-day rolling trend</p>
+          </div>
+          <div class="chart-actions">
+            <span class="badge badge-subtle" id="badgePeakDay">Peak: July 19</span>
+          </div>
+        </div>
+        <div class="chart-canvas-wrapper" style="height: 320px;">
+          <canvas id="dailyTrendChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Chart 2: State Volume vs Retailer Intensity (Half Width) -->
+      <div class="chart-card span-half">
+        <div class="chart-card-header">
+          <div>
+            <h3><i class="fa-solid fa-chart-column text-emerald"></i> State Analysis: Total Scans vs Retailer Intensity</h3>
+            <p class="chart-subtitle">Total volume (Bar) vs Average Scans per Retailer (Line / Indicator)</p>
+          </div>
+        </div>
+        <div class="chart-canvas-wrapper" style="height: 290px;">
+          <canvas id="stateAnalysisChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Chart 3: Category Performance Breakdown (Half Width) -->
+      <div class="chart-card span-half">
+        <div class="chart-card-header">
+          <div>
+            <h3><i class="fa-solid fa-chart-pie text-purple"></i> Category Volume Share & B5 Contribution</h3>
+            <p class="chart-subtitle">Distribution of scans across brand sub-categories</p>
+          </div>
+        </div>
+        <div class="chart-canvas-wrapper" style="height: 290px;">
+          <canvas id="categoryChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Chart 4: Day of Week Pattern (1/3 Width) -->
+      <div class="chart-card span-third">
+        <div class="chart-card-header">
+          <div>
+            <h3><i class="fa-solid fa-calendar-week text-amber"></i> Day of Week Scan Activity</h3>
+            <p class="chart-subtitle">Trading weekday velocity</p>
+          </div>
+        </div>
+        <div class="chart-canvas-wrapper" style="height: 240px;">
+          <canvas id="dowChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Chart 5: Retailer Tiers & Pareto (1/3 Width) -->
+      <div class="chart-card span-third">
+        <div class="chart-card-header">
+          <div>
+            <h3><i class="fa-solid fa-layer-group text-indigo"></i> Retailer Segmentation Tiers</h3>
+            <p class="chart-subtitle">Gold (>50), Silver (21-50), Bronze (5-20), Low (<5)</p>
+          </div>
+        </div>
+        <div class="chart-canvas-wrapper" style="height: 240px;">
+          <canvas id="retailerTierChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Chart 6: Packaging Breakdown (1/3 Width) -->
+      <div class="chart-card span-third">
+        <div class="chart-card-header">
+          <div>
+            <h3><i class="fa-solid fa-boxes-packing text-cyan"></i> Packaging UOM Mix</h3>
+            <p class="chart-subtitle">Box of 5 (B5 = 0.5) vs Box of 10 (B10 = 1.0)</p>
+          </div>
+        </div>
+        <div class="chart-canvas-wrapper" style="height: 240px;">
+          <canvas id="uomMixChart"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- Data Tables & Explorer Section -->
+    <section class="tables-section">
+      <div class="tables-header">
+        <div class="tabs-nav">
+          <button class="tab-btn active" data-tab="tabQuery1">
+            <i class="fa-solid fa-table-list"></i> Query 1: Detailed Scans (Mapped Box Count)
+          </button>
+          <button class="tab-btn" data-tab="tabRetailers">
+            <i class="fa-solid fa-users"></i> Query 2: Retailer Summary
+          </button>
+          <button class="tab-btn" data-tab="tabStates">
+            <i class="fa-solid fa-map"></i> State Rankings
+          </button>
+          <button class="tab-btn" data-tab="tabCategories">
+            <i class="fa-solid fa-tags"></i> Category Breakdown
+          </button>
+        </div>
+        
+        <div class="table-info-meta">
+          <span id="tableRecordCount">Showing 0 records</span>
+        </div>
+      </div>
+
+      <!-- Tab 1: Detailed Scans (Query 1 + Box_count) -->
+      <div class="tab-pane active" id="tabQuery1">
+        <div class="table-responsive">
+          <table class="data-table" id="tblQuery1">
+            <thead>
+              <tr>
+                <th>Retailer Name</th>
+                <th>Mobile Number</th>
+                <th>City</th>
+                <th>State Name</th>
+                <th>Category Name</th>
+                <th>SKU Code</th>
+                <th>UOM</th>
+                <th>MRP (₹)</th>
+                <th>Unit Price (₹)</th>
+                <th class="th-highlight">Box_count (B5=0.5, B10=1.0)</th>
+                <th>Retailer Scanned At</th>
+              </tr>
+            </thead>
+            <tbody id="tblQuery1Body">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+        <div class="pagination-controls" id="pagQuery1">
+          <!-- Pagination buttons -->
+        </div>
+      </div>
+
+      <!-- Tab 2: Retailer Summary (Query 2) -->
+      <div class="tab-pane" id="tabRetailers">
+        <div class="table-responsive">
+          <table class="data-table" id="tblRetailers">
+            <thead>
+              <tr>
+                <th>Retailer ID</th>
+                <th>Retailer Name</th>
+                <th>Mobile Number</th>
+                <th>City</th>
+                <th>State</th>
+                <th>Total Scans</th>
+                <th class="th-highlight">Calculated Box Count</th>
+                <th>B5 Scans (0.5)</th>
+                <th>B10 Scans (1.0)</th>
+                <th>Active Days</th>
+                <th>Engagement Tier</th>
+              </tr>
+            </thead>
+            <tbody id="tblRetailersBody">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Tab 3: State Performance -->
+      <div class="tab-pane" id="tabStates">
+        <div class="table-responsive">
+          <table class="data-table" id="tblStates">
+            <thead>
+              <tr>
+                <th>State Name</th>
+                <th>Total Scans</th>
+                <th>B5 Scans (0.5)</th>
+                <th>B10 Scans (1.0)</th>
+                <th class="th-highlight">Calculated Box Count</th>
+                <th>Active Retailers</th>
+                <th>Avg Scans / Retailer</th>
+                <th>National Scan Share %</th>
+              </tr>
+            </thead>
+            <tbody id="tblStatesBody">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Tab 4: Category Performance & High/Low Strategic Analysis -->
+      <div class="tab-pane" id="tabCategories">
+        <!-- Category High vs Low Executive Highlight Cards -->
+        <div class="category-highlight-cards">
+          <div class="cat-highlight-card border-emerald">
+            <div class="cat-highlight-badge bg-emerald-soft text-emerald">
+              <i class="fa-solid fa-arrow-trend-up"></i> HIGHEST PERFORMING CATEGORY
+            </div>
+            <div class="cat-highlight-header">
+              <h3 id="catHighName">Comfy Trunk & Briefs</h3>
+              <span class="cat-highlight-stat badge pill-emerald" id="catHighShare">21.3% Share</span>
+            </div>
+            <div class="cat-highlight-metrics">
+              <div><span class="lbl">Total Scans:</span> <strong id="catHighScans">1,459</strong></div>
+              <div><span class="lbl">B5 Contribution:</span> <strong id="catHighBoxPct">58.4%</strong></div>
+            </div>
+          </div>
+
+          <div class="cat-highlight-card border-rose">
+            <div class="cat-highlight-badge bg-rose-soft text-rose">
+              <i class="fa-solid fa-arrow-trend-down"></i> LOWEST PERFORMING CATEGORY
+            </div>
+            <div class="cat-highlight-header">
+              <h3 id="catLowName">WINTER</h3>
+              <span class="cat-highlight-stat badge pill-rose" id="catLowShare">1.8% Share</span>
+            </div>
+            <div class="cat-highlight-metrics">
+              <div><span class="lbl">Total Scans:</span> <strong id="catLowScans">122</strong></div>
+              <div><span class="lbl">Unique Retailers:</span> <strong id="catLowRetailers">45 Outlets</strong></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="table-responsive">
+          <table class="data-table" id="tblCategories">
+            <thead>
+              <tr>
+                <th>Category Name</th>
+                <th>Performance Status</th>
+                <th>Total Scans</th>
+                <th>B5 Scans (0.5)</th>
+                <th>B10 Scans (1.0)</th>
+                <th class="th-highlight">Calculated Box Count</th>
+                <th>Unique Retailers</th>
+                <th>Volume Share %</th>
+                <th>B5 Contribution %</th>
+              </tr>
+            </thead>
+            <tbody id="tblCategoriesBody">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Strategic Business Recommendations Section -->
+    <section class="recommendations-section">
+      <div class="section-title">
+        <i class="fa-solid fa-bullseye-arrow text-emerald"></i>
+        <h3>Strategic Business Recommendations for Leadership & Sales Teams</h3>
+      </div>
+      <div class="recommendations-grid">
+        <div class="rec-card">
+          <div class="rec-badge">Volume Growth</div>
+          <h4>1. Capitalize on High-Volume States</h4>
+          <p>States like <strong>Uttar Pradesh</strong> and <strong>Maharashtra</strong> generate ~32% of total national volume. Ensure distributor inventory stock is replenished before peak Wednesday-Thursday scan surges.</p>
+        </div>
+
+        <div class="rec-card">
+          <div class="rec-badge">Retailer Intensity</div>
+          <h4>2. Replicate High-Intensity Best Practices</h4>
+          <p><strong>Andhra Pradesh</strong> and <strong>Tamil Nadu</strong> exhibit the highest average scans per retailer (>40 scans/retailer). Analyze distributor engagement in these markets to adopt best practices across underperforming states.</p>
+        </div>
+
+        <div class="rec-card">
+          <div class="rec-badge">Packaging Shift</div>
+          <h4>3. Drive Box (B5) Packaging Adoption</h4>
+          <p>Box packaging (B5) represents <strong>58.2%</strong> of scans. Introducing an extra loyalty reward point for Box scans in categories like <em>Sporto Neo</em> can accelerate bulk trade adoption over individual pieces.</p>
+        </div>
+
+        <div class="rec-card">
+          <div class="rec-badge">Retention & Loyalty</div>
+          <h4>4. Nurture Bronze & Silver Retailer Tiers</h4>
+          <p>Over <strong>45% of retailers</strong> scan between 5-20 times per month. Targeted mid-month bonus gamification can nudge these occasional scanners into Gold-tier (>50 scans) power contributors.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="dashboard-footer">
+      <p>JGH Retailer Scan Intelligence • Query 1 & Query 2 Integrated Analytics Platform • Powered by Antigravity AI</p>
+      <p class="footer-sub">Confidential • For Internal Business Intelligence & Client Reporting</p>
+    </footer>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
