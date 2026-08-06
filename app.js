@@ -883,6 +883,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     catList.forEach((cat, idx) => {
       const scanShare = ((cat.total_scans / totalScansAll) * 100).toFixed(2);
       const b5Contrib = ((cat.b5_scans / (cat.total_scans || 1)) * 100).toFixed(2);
+      const b10Contrib = ((cat.b10_scans / (cat.total_scans || 1)) * 100).toFixed(2);
       
       let statusBadge = '<span class="badge pill-mid">STABLE</span>';
       if (idx === 0) {
@@ -904,6 +905,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         <td>${cat.retailers.size}</td>
         <td>${scanShare}%</td>
         <td><span class="badge pill-emerald">${b5Contrib}%</span></td>
+        <td><span class="badge pill-blue">${b10Contrib}%</span></td>
       `;
       tbody.appendChild(tr);
     });
