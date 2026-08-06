@@ -11,8 +11,9 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
   <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <!-- Chart.js -->
+  <!-- Chart.js & SheetJS -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <link rel="stylesheet" href="style.css">
 </head>
 <body class="theme-dark">
@@ -31,9 +32,11 @@
       </div>
 
       <div class="nav-controls">
-        <div class="date-badge">
-          <i class="fa-regular fa-calendar-days"></i>
-          <span>July 01 – July 31, 2026</span>
+        <div class="date-badge" style="display: flex; gap: 8px; align-items: center; background: var(--bg-surface); padding: 5px 10px; border-radius: 8px; border: 1px solid var(--border-color);">
+          <i class="fa-regular fa-calendar-days text-primary"></i>
+          <input type="date" id="filterStartDate" value="2026-07-01" style="border: none; background: transparent; color: var(--text-primary); font-size: 13px; outline: none; cursor: pointer; font-family: inherit;" />
+          <span style="color: var(--text-muted); font-size: 13px;">to</span>
+          <input type="date" id="filterEndDate" value="2026-07-31" style="border: none; background: transparent; color: var(--text-primary); font-size: 13px; outline: none; cursor: pointer; font-family: inherit;" />
         </div>
         
         <button id="btnExportExcel" class="btn btn-outline" title="Download Full Multi-Sheet Excel Workbook">

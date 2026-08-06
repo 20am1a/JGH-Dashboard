@@ -957,11 +957,46 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Export Buttons
     elBtnExportExcel.addEventListener('click', () => {
-      window.location.href = 'Retailer_Scan_Insights_July2026.xlsx';
+      if (typeof XLSX !== 'undefined') {
+        exportExcel();
+      } else {
+        window.location.href = 'Retailer_Scan_Insights_July2026.xlsx';
+      }
     });
 
     elBtnExportCSV.addEventListener('click', exportCSV);
     elBtnPrint.addEventListener('click', () => window.print());
+  }
+
+  // Excel Export Utility with Filtered Insights
+  function exportExcel() {
+    if (filteredScans.length === 0) {
+      alert('No data available to export.');
+      return;
+    }
+    const ws_data = filteredScans.map(row => ({
+      Retailer_ID: row.status_retailer_id || row.retailer_id || '',
+      Retailer_Name: row.retailer_name || '',
+      Mobile_Number: row.mobile_number || '',
+      City: row.city || '',
+      State: row.State_Name || '',
+      Category: row.Category_Name || '',
+      SKU_Code: row.sku_code || '',
+      UOM: row.uom || '',
+      MRP: row.mrp || '',
+      Unit_Price: row.unit_price || '',
+      Calculated_Box_Count: row.uom === 'B5' ? 0.5 : 1.0,
+      Scan_Timestamp: row.retailer_scanned_at || '',
+      Scan_Date: row.scan_date || (row.retailer_scanned_at ? String(row.retailer_scanned_at).slice(0, 10) : '')
+    }));
+    
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(ws_data);
+    XLSX.utils.book_append_sheet(wb, ws, "Filtered_Scans");
+    
+    const startStr = elFilterStartDate && elFilterStartDate.value ? elFilterStartDate.value : '2026-07-01';
+    const endStr = elFilterEndDate && elFilterEndDate.value ? elFilterEndDate.value : '2026-07-31';
+    XLSX.writeFile(wb, `Retailer_Scans_${startStr}_to_${endStr}.xlsx`);
   }
 
   // CSV Export Utility with Filtered Insights
