@@ -999,6 +999,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       ["Average Scans / Day", (totalFilteredScans / uniqueDays).toFixed(2), "Based on days active in filtered date range"]
     ];
 
+    const wb = XLSX.utils.book_new();
+    const ws_exec = XLSX.utils.aoa_to_sheet(exec_data);
+    XLSX.utils.book_append_sheet(wb, ws_exec, "Executive_Summary");
+    
+    // 2. Query1_Mapped_Scans
     const ws_data = filteredScans.map(row => ({
       Retailer_ID: row.status_retailer_id || row.retailer_id || '',
       Retailer_Name: row.retailer_name || '',
@@ -1014,13 +1019,89 @@ document.addEventListener('DOMContentLoaded', async () => {
       Scan_Timestamp: row.retailer_scanned_at || '',
       Scan_Date: row.scan_date || (row.retailer_scanned_at ? String(row.retailer_scanned_at).slice(0, 10) : '')
     }));
-    
-    const wb = XLSX.utils.book_new();
-    const ws_exec = XLSX.utils.aoa_to_sheet(exec_data);
-    const ws = XLSX.utils.json_to_sheet(ws_data);
-    XLSX.utils.book_append_sheet(wb, ws_exec, "Executive_Summary");
-    XLSX.utils.book_append_sheet(wb, ws, "Filtered_Scans");
-    
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(ws_data), "Query1_Mapped_Scans");
+
+    // 3. Query2_Retailer_Summary
+    const retMap = {};
+    filteredScans.forEach(s => {
+       const rid = s.status_retailer_id || s.retailer_id;
+       if (!retMap[rid]) {
+           retMap[rid] = { Retailer_ID: rid, Retailer_Name: s.retailer_name, Mobile_Number: s.mobile_number, City: s.city, State: s.State_Name, Total_Scans: 0, Calculated_Box_Count: 0, B5_Scans: 0, B10_Scans: 0 };
+       }
+       retMap[rid].Total_Scans += 1;
+       retMap[rid].Calculated_Box_Count += (s.uom === 'B5' ? 0.5 : 1.0);
+       if (s.uom === 'B5') retMap[rid].B5_Scans += 1;
+       else retMap[rid].B10_Scans += 1;
+    });
+    const retArr = Object.values(retMap).sort((a,b) => b.Total_Scans - a.Total_Scans);
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(retArr), "Query2_Retailer_Summary");
+
+    // 4. State_Performance
+    const stateMap = {};
+    filteredScans.forEach(s => {
+       const st = s.State_Name || 'Unknown';
+       if (!stateMap[st]) stateMap[st] = { State_Name: st, Total_Scans: 0, B5_Scans: 0, B10_Scans: 0, Calculated_Box_Count: 0, Unique_Retailers: new Set() };
+       stateMap[st].Total_Scans += 1;
+       stateMap[st].Calculated_Box_Count += (s.uom === 'B5' ? 0.5 : 1.0);
+       if (s.uom === 'B5') stateMap[st].B5_Scans += 1;
+       else stateMap[st].B10_Scans += 1;
+       stateMap[st].Unique_Retailers.add(s.status_retailer_id || s.retailer_id);
+    });
+    const stateArr = Object.values(stateMap).map(st => ({
+       State_Name: st.State_Name,
+       Total_Scans: st.Total_Scans,
+       B5_Scans: st.B5_Scans,
+       B10_Scans: st.B10_Scans,
+       Calculated_Box_Count: st.Calculated_Box_Count,
+       Unique_Retailers: st.Unique_Retailers.size,
+       Scan_Share_Pct: ((st.Total_Scans / totalFilteredScans) * 100).toFixed(2) + '%'
+    })).sort((a,b) => b.Total_Scans - a.Total_Scans);
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(stateArr), "State_Performance");
+
+    // 5. Category_Analysis
+    const catMap = {};
+    filteredScans.forEach(s => {
+       const cat = s.Category_Name || 'Unknown';
+       if (!catMap[cat]) catMap[cat] = { Category_Name: cat, Total_Scans: 0, B5_Scans: 0, B10_Scans: 0, Calculated_Box_Count: 0, Unique_Retailers: new Set() };
+       catMap[cat].Total_Scans += 1;
+       catMap[cat].Calculated_Box_Count += (s.uom === 'B5' ? 0.5 : 1.0);
+       if (s.uom === 'B5') catMap[cat].B5_Scans += 1;
+       else catMap[cat].B10_Scans += 1;
+       catMap[cat].Unique_Retailers.add(s.status_retailer_id || s.retailer_id);
+    });
+    const catArr = Object.values(catMap).map(c => ({
+       Category_Name: c.Category_Name,
+       Total_Scans: c.Total_Scans,
+       B5_Scans: c.B5_Scans,
+       B10_Scans: c.B10_Scans,
+       Calculated_Box_Count: c.Calculated_Box_Count,
+       Unique_Retailers: c.Unique_Retailers.size,
+       Volume_Share_Pct: ((c.Total_Scans / totalFilteredScans) * 100).toFixed(2) + '%',
+       B5_Contribution_Pct: ((c.B5_Scans / (c.Total_Scans||1)) * 100).toFixed(2) + '%'
+    })).sort((a,b) => b.Total_Scans - a.Total_Scans);
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(catArr), "Category_Analysis");
+
+    // 6. Daily_Scanning_Trends
+    const dateMap = {};
+    filteredScans.forEach(s => {
+       const d = s.scan_date || (s.retailer_scanned_at ? String(s.retailer_scanned_at).slice(0, 10) : 'Unknown');
+       if (!dateMap[d]) dateMap[d] = { Scan_Date: d, Total_Scans: 0, B5_Scans: 0, B10_Scans: 0, Calculated_Box_Count: 0, Unique_Retailers: new Set() };
+       dateMap[d].Total_Scans += 1;
+       dateMap[d].Calculated_Box_Count += (s.uom === 'B5' ? 0.5 : 1.0);
+       if (s.uom === 'B5') dateMap[d].B5_Scans += 1;
+       else dateMap[d].B10_Scans += 1;
+       dateMap[d].Unique_Retailers.add(s.status_retailer_id || s.retailer_id);
+    });
+    const dailyArr = Object.values(dateMap).map(d => ({
+       Scan_Date: d.Scan_Date,
+       Total_Scans: d.Total_Scans,
+       B5_Scans: d.B5_Scans,
+       B10_Scans: d.B10_Scans,
+       Calculated_Box_Count: d.Calculated_Box_Count,
+       Active_Retailers: d.Unique_Retailers.size
+    })).sort((a,b) => a.Scan_Date.localeCompare(b.Scan_Date));
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(dailyArr), "Daily_Scanning_Trends");
+
     XLSX.writeFile(wb, `Retailer_Scans_${startStr}_to_${endStr}.xlsx`);
   }
 
