@@ -7,3 +7,16 @@ env/
 venv/
 .venv/
 .env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Scratch & temporary testing directories
+scratch/
+temp/
+tmp/
+*.log
+
+# Local temporary backups
+app_backup.js

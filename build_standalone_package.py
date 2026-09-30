@@ -1,13 +1,38 @@
 import os
 import json
 import zipfile
+import re
 
 def build_standalone():
     base_dir = os.path.dirname(os.path.abspath(__file__))
+    json_path = os.path.join(base_dir, "dashboard_data.json")
+    js_data_path = os.path.join(base_dir, "dashboard_data.js")
+    
+    # Read dashboard_data.js directly if it exists, otherwise generate from json
+    if os.path.exists(js_data_path) and os.path.getsize(js_data_path) > 1000:
+        print("[OK] Reading existing dashboard_data.js directly...")
+        with open(js_data_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        prefix = "window.INLINE_DASHBOARD_DATA = "
+        if content.startswith(prefix):
+            data_json = content[len(prefix):].rstrip("; \r\n")
+        else:
+            data_json = content
+        print(f"[OK] Loaded data_json from dashboard_data.js ({len(data_json)} chars)")
+    elif os.path.exists(json_path):
+        with open(json_path, "r", encoding="utf-8") as f:
+            raw_data = json.load(f)
+        minified_json = json.dumps(raw_data, separators=(',', ':'))
+        with open(js_data_path, "w", encoding="utf-8") as f:
+            f.write(f"window.INLINE_DASHBOARD_DATA = {minified_json};")
+        print(f"[OK] Auto-generated dashboard_data.js from JSON (minified)")
+        data_json = minified_json
+    else:
+        data_json = "{}"
+
     index_html_path = os.path.join(base_dir, "index.html")
     style_css_path = os.path.join(base_dir, "style.css")
     app_js_path = os.path.join(base_dir, "app.js")
-    json_path = os.path.join(base_dir, "dashboard_data.json")
     
     standalone_path = os.path.join(base_dir, "Standalone_Retailer_Dashboard.html")
     zip_path = os.path.join(base_dir, "JGH_Retailer_Scan_Intelligence_Client_Package.zip")
@@ -22,11 +47,33 @@ def build_standalone():
     with open(app_js_path, "r", encoding="utf-8") as f:
         js = f.read()
 
-    with open(json_path, "r", encoding="utf-8") as f:
-        data_json = f.read()
+    # Read vendor libraries to inline into standalone HTML for 100% offline self-containment
+    vendor_js = ""
+    vendor_files = [
+        os.path.join(base_dir, "vendor", "chart.min.js"),
+        os.path.join(base_dir, "vendor", "chartjs-plugin-datalabels.min.js"),
+        os.path.join(base_dir, "vendor", "xlsx.min.js"),
+        os.path.join(base_dir, "vendor", "echarts.min.js")
+    ]
+    for vf in vendor_files:
+        if os.path.exists(vf):
+            with open(vf, "r", encoding="utf-8") as f:
+                vendor_js += f.read() + "\n;\n"
 
-    # Replace <link rel="stylesheet" href="style.css"> with <style>...</style>
-    html = html.replace('<link rel="stylesheet" href="style.css">', f'<style>\n{css}\n</style>')
+    # Replace vendor script tags with inlined JS code
+    html = re.sub(
+        r'<!-- Chart\.js, Datalabels, SheetJS & ECharts.*?<script>if \(typeof echarts === \'undefined\'\).*?<\/script>',
+        lambda m: f'<script>\n{vendor_js}\n</script>',
+        html,
+        flags=re.DOTALL
+    )
+
+    # Replace CSS link with inline style using regex and lambda to avoid backslash issues
+    html = re.sub(
+        r'<link\s+rel="stylesheet"\s+href="style\.css(?:\?v=\d+)?"\s*>',
+        lambda m: f'<style>\n{css}\n</style>',
+        html
+    )
 
     # Update app.js so it reads embedded window.INLINE_DASHBOARD_DATA directly without fetch CORS restrictions
     custom_js = f"""
@@ -34,8 +81,15 @@ def build_standalone():
     {js}
     """
 
-    # Replace <script src="app.js"></script> with <script>...</script>
-    html = html.replace('<script src="app.js"></script>', f'<script>\n{custom_js}\n</script>')
+    # Remove standalone dashboard_data.js script tag if present
+    html = re.sub(r'<script\s+src="dashboard_data\.js(?:\?[^"]*)?"\s*></script>\s*', '', html)
+
+    # Replace JS script tag with inline script using regex and lambda to avoid backslash issues
+    html = re.sub(
+        r'<script\s+src="app\.js(?:\?[^"]*)?"\s*></script>',
+        lambda m: f'<script>\n{custom_js}\n</script>',
+        html
+    )
 
     with open(standalone_path, "w", encoding="utf-8") as f:
         f.write(html)
@@ -44,6 +98,18 @@ def build_standalone():
     # Create Client ZIP Package
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
         zipf.write(standalone_path, arcname="Interactive_Dashboard.html")
+        zipf.write(index_html_path, arcname="index.html")
+        zipf.write(app_js_path, arcname="app.js")
+        zipf.write(style_css_path, arcname="style.css")
+        zipf.write(json_path, arcname="dashboard_data.json")
+        data_js_path = os.path.join(base_dir, "dashboard_data.js")
+        if os.path.exists(data_js_path):
+            zipf.write(data_js_path, arcname="dashboard_data.js")
+        for vf in vendor_files:
+            if os.path.exists(vf):
+                rel_name = os.path.relpath(vf, base_dir)
+                zipf.write(vf, arcname=rel_name)
+        
         candidate_excels = [
             excel_path.replace(".xlsx", "_Final.xlsx"),
             excel_path.replace(".xlsx", "_Updated.xlsx"),
@@ -70,7 +136,13 @@ def build_standalone():
    - No installation or internet server required.
    - Includes interactive filters, charts, KPI scorecards, retailer rankings, and CSV export.
 
-2. **Retailer_Scan_Insights_July2026.xlsx**:
+2. **Source Code Files (for hosting on web server):**
+   - **index.html**: The master dashboard HTML structure.
+   - **style.css**: Premium custom stylesheet.
+   - **app.js**: Dynamic filtering, Chart.js renders, and data processing.
+   - **dashboard_data.json**: The full underlying scan data (loadable by index.html when hosted).
+
+3. **Retailer_Scan_Insights_July2026.xlsx**:
    - Comprehensive multi-sheet corporate Excel workbook.
    - Includes:
      * Executive Summary & Business Answers
@@ -81,7 +153,7 @@ def build_standalone():
      * Category_Analysis (Packaging mix)
      * Raw_Data_Dump (100% full raw transaction dump)
 
-3. **Raw_Data_Dump.csv**:
+4. **Raw_Data_Dump.csv**:
    - Complete raw transaction dataset for instant import into Power BI, Excel, or SQL.
 
 ---

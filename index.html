@@ -9,16 +9,35 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Leaflet.js Map -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <!-- Chart.js & SheetJS -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <link rel="stylesheet" href="style.css">
+  <!-- Chart.js, Datalabels, SheetJS & ECharts (Local Vendor Files + CDN Fallbacks) -->
+  <script src="vendor/chart.min.js"></script>
+  <script>if (typeof Chart === 'undefined') document.write('<script src="https://cdn.jsdelivr.net/npm/chart.js"><\/script>');</script>
+  <script src="vendor/chartjs-plugin-datalabels.min.js"></script>
+  <script>if (typeof ChartDataLabels === 'undefined') document.write('<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"><\/script>');</script>
+  <script src="vendor/xlsx.min.js"></script>
+  <script>if (typeof XLSX === 'undefined') document.write('<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.min.js"><\/script>');</script>
+  <script src="vendor/echarts.min.js"></script>
+  <script>if (typeof echarts === 'undefined') document.write('<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"><\/script>');</script>
+  <link rel="stylesheet" href="style.css?v=11">
 </head>
 <body class="theme-dark">
-  <div class="dashboard-wrapper">
+  <div class="dashboard-wrapper" id="mainDashboardView">
     
+    <!-- CORS Warning Banner -->
+    <div id="corsWarningBanner" class="cors-warning-banner" style="display: none;">
+      <div class="warning-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+      <div class="warning-text">
+        <strong>Local Browser Security Restriction (CORS) Active:</strong> 
+        It looks like you opened the dashboard by double-clicking <code>index.html</code>. Browsers block local data file access (<code>dashboard_data.json</code>) for security. 
+        Please open <a href="Standalone_Retailer_Dashboard.html" class="warning-link"><strong>Standalone_Retailer_Dashboard.html</strong></a> instead (which has all data embedded and works instantly), or run a local HTTP server.
+      </div>
+    </div>
+
     <!-- Top Navigation Header -->
     <header class="top-nav">
       <div class="nav-brand">
@@ -27,16 +46,42 @@
         </div>
         <div class="brand-text">
           <h1>JGH Scan Intelligence <span>Dashboard</span></h1>
-          <p class="subtitle">Executive Business Insights & Retailer Performance • July 2026</p>
+          <p class="subtitle">Executive Business Insights & Retailer Performance • <span id="headerSubTitleDateRange">Jan 2026 to Till Date</span></p>
         </div>
       </div>
 
       <div class="nav-controls">
-        <div class="date-badge" style="display: flex; gap: 8px; align-items: center; background: var(--bg-surface); padding: 5px 10px; border-radius: 8px; border: 1px solid var(--border-color);">
-          <i class="fa-regular fa-calendar-days text-primary"></i>
-          <input type="date" id="filterStartDate" value="2026-07-01" style="border: none; background: transparent; color: var(--text-primary); font-size: 13px; outline: none; cursor: pointer; font-family: inherit;" />
-          <span style="color: var(--text-muted); font-size: 13px;">to</span>
-          <input type="date" id="filterEndDate" value="2026-07-31" style="border: none; background: transparent; color: var(--text-primary); font-size: 13px; outline: none; cursor: pointer; font-family: inherit;" />
+        <!-- Proper Executive Date Filter -->
+        <div class="date-badge" style="display: flex; gap: 8px; align-items: center; background: var(--bg-surface); padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border-color); flex-wrap: wrap;">
+          <span style="font-size: 12px; color: var(--text-muted); font-weight: 700; display: flex; align-items: center; gap: 4px;">
+            <i class="fa-solid fa-calendar-days text-primary"></i> Period:
+          </span>
+          <select id="selHeaderDatePreset" onchange="onHeaderDatePresetChange(this.value)" style="border: 1px solid rgba(59,130,246,0.4); background: #1E293B; color: #FFF; font-size: 12px; padding: 4px 10px; border-radius: 6px; font-weight: 700; cursor: pointer; outline: none;">
+            <option value="JAN_TILL_DATE" selected>📅 Jan 2026 – Till Date (Full View)</option>
+            <option value="AUG_SEP_2026">📅 Aug 2026 – Till Date</option>
+            <option value="AUG_2026">📅 August 2026</option>
+            <option value="JULY_2026">📅 July 2026</option>
+            <option value="JUNE_2026">📅 June 2026</option>
+            <option value="MAY_2026">📅 May 2026</option>
+            <option value="APRIL_2026">📅 April 2026</option>
+            <option value="MARCH_2026">📅 March 2026</option>
+            <option value="FEB_2026">📅 February 2026</option>
+            <option value="JAN_2026">📅 January 2026</option>
+            <option value="CUSTOM">⚙️ Custom Date Range</option>
+          </select>
+
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <input type="date" id="headerStartDate" value="2026-01-01" min="2026-01-01" max="2026-09-29" onclick="try{this.showPicker()}catch(e){}" onfocus="try{this.showPicker()}catch(e){}" onchange="onCustomDateInput()" oninput="onCustomDateInput()" style="border: 1px solid var(--border-color); background: rgba(0,0,0,0.3); color: var(--text-primary); font-size: 12px; padding: 4px 8px; border-radius: 6px; outline: none; cursor: pointer; font-family: inherit; font-weight: 600;" title="Click to pick Start Date (or use Select Range)" />
+            <span style="color: var(--text-muted); font-size: 12px; font-weight: 600;">to</span>
+            <input type="date" id="headerEndDate" value="2026-09-29" min="2026-01-01" max="2026-09-29" onclick="try{this.showPicker()}catch(e){}" onfocus="try{this.showPicker()}catch(e){}" onchange="onCustomDateInput()" oninput="onCustomDateInput()" style="border: 1px solid var(--border-color); background: rgba(0,0,0,0.3); color: var(--text-primary); font-size: 12px; padding: 4px 8px; border-radius: 6px; outline: none; cursor: pointer; font-family: inherit; font-weight: 600;" title="Click to pick End Date (or use Select Range)" />
+          </div>
+          <button id="btnOpenDateRangePicker" type="button" onclick="openDateRangePickerModal()" class="btn btn-sm" style="background: rgba(59,130,246,0.18); color: #93C5FD; border: 1px solid rgba(59,130,246,0.4); padding: 4px 10px; border-radius: 6px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 11.5px;" title="Open Visual Calendar to select Date Range without typing">
+            <i class="fa-solid fa-calendar-week text-primary"></i> <span id="lblHeaderRangeBtn">Select Range</span>
+          </button>
+
+          <button onclick="clearHeaderDates()" class="btn btn-sm" style="background: rgba(239,68,68,0.15); color: #F87171; border: 1px solid rgba(239,68,68,0.3); padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer;" title="Reset Date Filter">
+            <i class="fa-solid fa-rotate-left"></i> Reset
+          </button>
         </div>
         
         <button id="btnExportExcel" class="btn btn-outline" title="Download Full Multi-Sheet Excel Workbook">
@@ -56,13 +101,64 @@
         </button>
       </div>
     </header>
+    <!-- Main Executive View Switcher Bar (Tabbed Portal Navigation) -->
+    <section class="main-view-switcher-bar" id="mainViewSwitcher">
+      <button class="view-tab-btn active" data-view="viewOverview" onclick="switchMainView('viewOverview', this)">
+        <i class="fa-solid fa-gauge-high"></i> Executive Overview
+      </button>
+      <button class="view-tab-btn" data-view="viewGeographic" onclick="switchMainView('viewGeographic', this)">
+        <i class="fa-solid fa-map-location-dot"></i> India Map & States
+      </button>
+      <button class="view-tab-btn" data-view="viewDistributors" onclick="switchMainView('viewDistributors', this)">
+        <i class="fa-solid fa-trophy"></i> Distributor Leaderboard
+      </button>
+      <button class="view-tab-btn" data-view="viewProducts" onclick="switchMainView('viewProducts', this)">
+        <i class="fa-solid fa-chart-pie"></i> Product Categories
+      </button>
+      <button class="view-tab-btn" data-view="viewRetailers" onclick="switchMainView('viewRetailers', this)">
+        <i class="fa-solid fa-store"></i> Retailer Loyalty
+      </button>
+      <button class="view-tab-btn" data-view="viewOpportunities" onclick="switchMainView('viewOpportunities', this)">
+        <i class="fa-solid fa-lightbulb"></i> Business Opportunities
+      </button>
+      <button class="view-tab-btn" data-view="viewDataExplorer" onclick="switchMainView('viewDataExplorer', this)">
+        <i class="fa-solid fa-table"></i> Data Explorer
+      </button>
+    </section>
+
+
+    <!-- Executive Quick Guide & Metric Legend Banner -->
+    <section class="executive-legend-banner" style="background: rgba(15, 23, 42, 0.75); border: 1px solid var(--border-color); border-radius: 12px; padding: 12px 18px; margin-bottom: 18px;">
+      <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="background: rgba(59, 130, 246, 0.15); width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #60A5FA;">
+            <i class="fa-solid fa-circle-info" style="font-size: 15px;"></i>
+          </div>
+          <div>
+            <h4 style="margin: 0; font-size: 12px; font-weight: 700; color: var(--text-primary); text-transform: uppercase; letter-spacing: 0.5px;">Executive Quick Guide & Metrics Legend</h4>
+            <p style="margin: 2px 0 0 0; font-size: 11px; color: var(--text-muted);">Simple definitions for executive leadership & managers</p>
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap; font-size: 11px;">
+          <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); padding: 5px 10px; border-radius: 6px; color: var(--text-secondary);">
+            <i class="fa-solid fa-qrcode text-blue" style="margin-right: 5px;"></i> <strong>Scans:</strong> Total barcodes scanned
+          </div>
+          <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); padding: 5px 10px; border-radius: 6px; color: var(--text-secondary);">
+            <i class="fa-solid fa-boxes-stacked text-emerald" style="margin-right: 5px;"></i> <strong>Box Volume:</strong> Standard box units (<span style="color:#60A5FA;">Box of 5 = 0.5</span>, <span style="color:#10B981;">Box of 10 = 1.0</span>)
+          </div>
+          <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); padding: 5px 10px; border-radius: 6px; color: var(--text-secondary);">
+            <i class="fa-solid fa-store text-purple" style="margin-right: 5px;"></i> <strong>Scans / Store:</strong> Average scans per active retailer
+          </div>
+        </div>
+      </div>
+    </section>
 
     <!-- Executive Business Insights Callout Banner -->
     <section class="insights-banner">
       <div class="banner-header">
         <div class="banner-title">
           <i class="fa-solid fa-lightbulb-on text-amber"></i>
-          <h3>Executive Business Insights & Key Takeaways (For Non-Tech Stakeholders)</h3>
+          <h3>Executive Business Insights & Key Takeaways</h3>
         </div>
         <span class="badge badge-glow">Automated Intelligence</span>
       </div>
@@ -74,7 +170,7 @@
           </div>
           <div class="insight-content">
             <h4>Scanning Velocity</h4>
-            <p>National average of <strong id="insDailyAvg">249.0 scans/day</strong> with <strong id="insRetailerAvg">30.9 scans per retailer</strong>. Activity peaked on <strong id="insPeakDay">July 19</strong>.</p>
+            <p>Average: <strong id="insDailyAvg">-- scans/day</strong> (<span id="insRetailerAvg">-- scans/store</span>).<br>Peak Date: <strong id="insPeakDay">--</strong>.</p>
           </div>
         </div>
 
@@ -83,8 +179,8 @@
             <i class="fa-solid fa-map-location-dot text-emerald"></i>
           </div>
           <div class="insight-content">
-            <h4>Geographic Leadership</h4>
-            <p><strong id="insTopStateVol">Uttar Pradesh</strong> leads in total volume (<span id="insTopStateVolShare">18.2%</span> share), while <strong id="insTopStateInt">Andhra Pradesh</strong> retailers have the highest average scanning intensity (<span id="insTopStateIntAvg">42.5</span> scans/retailer).</p>
+            <h4>Top Sales States</h4>
+            <p>Top Volume: <strong id="insTopStateVol">--</strong> (<span id="insTopStateVolShare">--%</span> share).<br>Top Store Rate: <strong id="insTopStateInt">--</strong> (<span id="insTopStateIntAvg">-- scans/store</span>).</p>
           </div>
         </div>
 
@@ -93,8 +189,8 @@
             <i class="fa-solid fa-box-open text-purple"></i>
           </div>
           <div class="insight-content">
-            <h4>Category & Packaging</h4>
-            <p><strong id="insTopCategory">Comfy Trunk & Briefs</strong> is the most scanned category (<span id="insTopCatShare">22.4%</span>). Box Packaging (UOM B5) accounts for <strong id="insBoxRatio">58.2%</strong> of all verification scans.</p>
+            <h4>Best Product Category</h4>
+            <p>Top Category: <strong id="insTopCategory">--</strong> (<span id="insTopCatShare">--%</span> share).<br>Small Box (B5) Share: <strong id="insBoxRatio">--%</strong>.</p>
           </div>
         </div>
 
@@ -103,58 +199,61 @@
             <i class="fa-solid fa-users-crown text-amber"></i>
           </div>
           <div class="insight-content">
-            <h4>Retailer Engagement (Pareto)</h4>
-            <p>The top <strong>20% Power Retailers</strong> drive <strong id="insPareto">48.9%</strong> of all scanning activity. Loyalty programs should focus on nurturing the 45% Bronze-tier retailers.</p>
+            <h4>Power Stores (80/20 Rule)</h4>
+            <p>Top <strong>20% Active Retailers</strong> generate <strong id="insPareto">--%</strong> of total scan sales.<br>Target remaining 80% stores for growth.</p>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- Key Metrics Cards Row -->
+<!-- Key Metrics Cards Row -->
     <section class="kpi-grid">
       <div class="kpi-card border-top-blue">
         <div class="kpi-meta">
           <span class="kpi-label">TOTAL QR SCANS</span>
-          <span class="kpi-pill pill-blue"><i class="fa-solid fa-arrow-up"></i> Query 1</span>
+          <span class="kpi-pill pill-blue" id="kpiRawScansTooltip" title="100% verified scan transactions"><i class="fa-solid fa-shield-check"></i> Verified Data</span>
         </div>
         <div class="kpi-value" id="kpiTotalScans">--</div>
-        <div class="kpi-sub">July 1 – July 31, 2026 Volume</div>
+        <div class="kpi-sub" id="kpiTotalScansSub" style="font-size: 11px; color: var(--text-muted); line-height: 1.3; margin-top: 4px;">
+          Total Scans in Selected Period
+        </div>
       </div>
 
       <div class="kpi-card border-top-emerald">
         <div class="kpi-meta">
-          <span class="kpi-label">CALCULATED BOX COUNT</span>
-          <span class="kpi-pill pill-emerald"><i class="fa-solid fa-boxes-stacked"></i> B5=0.5 | B10=1.0</span>
+          <span class="kpi-label">TOTAL BOX VOLUME</span>
+          <span class="kpi-pill pill-emerald" title="Calculated Box Units: Box of 5 = 0.5 box, Box of 10 = 1.0 box"><i class="fa-solid fa-boxes-stacked"></i> Box Units</span>
         </div>
         <div class="kpi-value" id="kpiTotalBoxes">--</div>
-        <div class="kpi-sub" id="kpiBoxShareSub">-- Total Box Units</div>
+        <div class="kpi-sub" id="kpiBoxShareSub">Total Standard Box Volume</div>
       </div>
 
-      <div class="kpi-card border-top-indigo">
+      <!-- ONE SINGLE CLEAN SCANNED RETAILERS CARD BEFORE DASHBOARD -->
+      <div class="kpi-card border-top-indigo" id="cardTotalRetailersSingle" onclick="openDormantModal()" style="cursor: pointer;" title="Click to view all registered stores and activation breakdown">
         <div class="kpi-meta">
           <span class="kpi-label">ACTIVE RETAILERS</span>
-          <span class="kpi-pill pill-indigo"><i class="fa-solid fa-store"></i> Coverage</span>
+          <span class="kpi-pill pill-indigo"><i class="fa-solid fa-store"></i> Active Stores</span>
         </div>
         <div class="kpi-value" id="kpiTotalRetailers">--</div>
-        <div class="kpi-sub">Unique Scanning Outlets</div>
+        <div class="kpi-sub" id="kpiTotalRetailersSub">Active Retailers in Selected Period</div>
       </div>
 
       <div class="kpi-card border-top-amber">
         <div class="kpi-meta">
-          <span class="kpi-label">AVG SCANS / DAY</span>
+          <span class="kpi-label">DAILY SCAN RATE</span>
           <span class="kpi-pill pill-amber"><i class="fa-solid fa-gauge-high"></i> Velocity</span>
         </div>
         <div class="kpi-value" id="kpiAvgPerDay">--</div>
-        <div class="kpi-sub">Daily Scanning Run-Rate</div>
+        <div class="kpi-sub">Average Scans / Day</div>
       </div>
 
       <div class="kpi-card border-top-purple">
         <div class="kpi-meta">
-          <span class="kpi-label">AVG SCANS / RETAILER</span>
+          <span class="kpi-label">SCANS PER STORE</span>
           <span class="kpi-pill pill-purple"><i class="fa-solid fa-user-check"></i> Intensity</span>
         </div>
         <div class="kpi-value" id="kpiAvgPerRetailer">--</div>
-        <div class="kpi-sub">Per Active Outlet</div>
+        <div class="kpi-sub">Average Scans / Store</div>
       </div>
 
       <div class="kpi-card border-top-rose">
@@ -164,6 +263,188 @@
         </div>
         <div class="kpi-value kpi-value-sm" id="kpiTopCategory">--</div>
         <div class="kpi-sub" id="kpiTopCatScans">-- Scans</div>
+      </div>
+
+      <div class="kpi-card border-top-cyan">
+        <div class="kpi-meta">
+          <span class="kpi-label">LOWEST CATEGORY</span>
+          <span class="kpi-pill pill-cyan"><i class="fa-solid fa-triangle-exclamation"></i> Opportunity</span>
+        </div>
+        <div class="kpi-value kpi-value-sm" id="kpiLowestCategory">--</div>
+        <div class="kpi-sub" id="kpiLowestCatScans">-- Scans</div>
+      </div>
+    </section></section>
+    <section class="growth-section" style="margin-top: 24px;">
+      <div class="section-title">
+        <i class="fa-solid fa-rocket text-brand"></i>
+        <h3>Company Growth & Expansion KPIs (Actionable Targets)</h3>
+      </div>
+      <div class="kpi-grid">
+        <!-- ONE UNIFIED RETAILER ACTIVATION PROFILE CARD -->
+        <div class="kpi-card border-top-emerald" id="cardUnifiedActivation" style="grid-column: span 2; border-left: 4px solid #10B981; background: linear-gradient(135deg, rgba(16,185,129,0.06) 0%, rgba(19,27,46,0.95) 100%);">
+          <div class="kpi-meta">
+            <span class="kpi-label" style="color: #34D399; font-weight: 800;">RETAILER ACTIVATION STATUS <span id="lblRetailerActivationPeriod">(Jan 2026 to Till Date)</span></span>
+            <span class="kpi-pill pill-emerald"><i class="fa-solid fa-shield-check"></i> Business Standard</span>
+          </div>
+          
+          <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin: 12px 0;">
+            <div style="background: rgba(99,102,241,0.12); padding: 12px; border-radius: 8px; border: 1px solid rgba(99,102,241,0.25); text-align: center;">
+              <div style="font-size: 11px; color: #C7D2FE; font-weight: 700;">ACTIVE RETAILERS</div>
+              <div style="font-size: 24px; font-weight: 800; color: #818CF8; margin-top: 2px;" id="kpi6MActiveCount">--</div>
+              <div style="font-size: 10px; color: var(--text-muted);" id="subActiveRetailerPeriod">&ge; 1 Box Scanned in Selected Period</div>
+            </div>
+
+            <div style="background: rgba(244,63,94,0.12); padding: 12px; border-radius: 8px; border: 1px solid rgba(244,63,94,0.25); text-align: center;">
+              <div style="font-size: 11px; color: #FECDD3; font-weight: 700;">INACTIVE RETAILERS</div>
+              <div style="font-size: 24px; font-weight: 800; color: #FB7185; margin-top: 2px;" id="kpi6MInactiveCount">--</div>
+              <div style="font-size: 10px; color: var(--text-muted);" id="subInactiveRetailerPeriod">Registered &ndash; 0 Scans in Selected Period</div>
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px;">
+            <button id="btnActiveRetailersModalLabel" type="button" onclick="openActiveRetailersModal()" style="flex: 1; background: #10B981; color: #FFFFFF; text-align: center; padding: 9px 12px; border-radius: 6px; font-size: 12px; font-weight: 700; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 4px 12px rgba(16,185,129,0.3);">
+              <i class="fa-solid fa-circle-check"></i> View Active Retailers &rarr;
+            </button>
+            <button id="btnInactiveRetailersModalLabel" type="button" onclick="openDormantModal('inactive')" style="flex: 1; background: #F43F5E; color: #FFFFFF; text-align: center; padding: 9px 12px; border-radius: 6px; font-size: 12px; font-weight: 700; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 4px 12px rgba(244,63,94,0.3);">
+              <i class="fa-solid fa-circle-xmark"></i> View Inactive Retailers &rarr;
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Strategic Opportunity Identification Panel (Section 8 in Business Requirements) -->
+    <section class="growth-section" style="margin-top: 24px;">
+      <div class="section-title">
+        <i class="fa-solid fa-lightbulb text-amber"></i>
+        <h3>Strategic Business Opportunity Matrix (Automated BI Detection)</h3>
+      </div>
+      <div class="opportunity-grid">
+        <div class="opportunity-card opp-type-engagement" onclick="openUpsellModal()">
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <span class="badge" style="background: rgba(59,130,246,0.15); color: #60A5FA;">Retailer Engagement Opportunity</span>
+            <i class="fa-solid fa-cart-plus text-primary"></i>
+          </div>
+          <div style="font-size: 13px; font-weight: 700; color: var(--text-primary);">High Retailer Count + Low Category Depth</div>
+          <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.4;">
+            <strong id="opp1Count" style="color: #60A5FA;">-- Retailers</strong> scan only 1 product category. High cross-sell potential to expand product basket.
+          </div>
+          <button class="btn btn-sm btn-outline" style="margin-top: 6px;"><i class="fa-solid fa-arrow-right"></i> Target Retailers</button>
+        </div>
+
+        <div class="opportunity-card opp-type-expansion" onclick="openBronzeModal()">
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <span class="badge" style="background: rgba(16,185,129,0.15); color: #34D399;">Volume Expansion Opportunity</span>
+            <i class="fa-solid fa-arrow-trend-up text-emerald"></i>
+          </div>
+          <div style="font-size: 13px; font-weight: 700; color: var(--text-primary);">High Velocity + Bronze Tier Upgrade</div>
+          <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.4;" id="opp2Sub">
+            <strong id="opp2Count" style="color: #34D399;">-- Retailers</strong> in Bronze (5-24 scans). Upgrading them to Silver adds volume.
+          </div>
+          <button class="btn btn-sm btn-outline" style="margin-top: 6px;"><i class="fa-solid fa-arrow-right"></i> Upgrade Candidates</button>
+        </div>
+
+        <div class="opportunity-card opp-type-distributor" onclick="openDistributorModal()">
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <span class="badge" style="background: rgba(99,102,241,0.15); color: #818CF8;">Distributor Activation Opportunity</span>
+            <i class="fa-solid fa-warehouse text-indigo"></i>
+          </div>
+          <div style="font-size: 13px; font-weight: 700; color: var(--text-primary);">High Distributor Base + Underperforming Scans</div>
+          <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.4;">
+            <strong id="opp3Count" style="color: #818CF8;">-- Distributors</strong> have &lt;50% retailer activation rate. Priority channel enablement required.
+          </div>
+          <button class="btn btn-sm btn-outline" style="margin-top: 6px;"><i class="fa-solid fa-arrow-right"></i> Channel Enablement</button>
+        </div>
+
+        <div class="opportunity-card opp-type-category" onclick="openPendingModal()">
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <span class="badge" style="background: rgba(139,92,246,0.15); color: #A78BFA;">Category Growth Opportunity</span>
+            <i class="fa-solid fa-layer-group text-purple"></i>
+          </div>
+          <div style="font-size: 13px; font-weight: 700; color: var(--text-primary);">High Volume State + Low Category Mix</div>
+          <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.4;">
+            <strong id="opp4State" style="color: #A78BFA;">-- State</strong> generates high volume but single category focus. Introduce secondary lines.
+          </div>
+          <button class="btn btn-sm btn-outline" style="margin-top: 6px;"><i class="fa-solid fa-arrow-right"></i> Category Matrix</button>
+        </div>
+
+        <div class="opportunity-card opp-type-improvement" onclick="openDormantModal()">
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <span class="badge" style="background: rgba(245,158,11,0.15); color: #FBBF24;">Retention & Re-activation</span>
+            <i class="fa-solid fa-triangle-exclamation text-amber"></i>
+          </div>
+          <div style="font-size: 13px; font-weight: 700; color: var(--text-primary);">Dormant Retailers (No Scans Last 2 Months)</div>
+          <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.4;">
+            <strong id="opp5Count" style="color: #FBBF24;">-- Silent Retailers</strong> require win-back field campaigns to prevent permanent churn.
+          </div>
+          <button class="btn btn-sm btn-outline" style="margin-top: 6px;"><i class="fa-solid fa-arrow-right"></i> Win-back List</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Distributor & Territory Performance Hub -->
+    <section class="workflow-section" style="margin-top: 24px;">
+      <div class="section-title">
+        <i class="fa-solid fa-network-wired text-indigo"></i>
+        <h3>Channel Partner & Distributor Performance Hub</h3>
+      </div>
+      <div class="kpi-grid">
+        <div class="kpi-card" id="cardDistributorCoverage" onclick="openDistributorModal()" style="border-top: 4px solid #6366F1; cursor: pointer;" title="Click to view distributor performance leaderboard">
+          <div class="kpi-meta">
+            <span class="kpi-label">DISTRIBUTOR CHANNELS</span>
+            <span class="kpi-pill pill-indigo"><i class="fa-solid fa-warehouse"></i> Active</span>
+          </div>
+          <div class="kpi-value" id="wfDistributor">--</div>
+          <div class="kpi-sub">Registered supply partners actively distributing</div>
+          <div style="margin-top: 12px;">
+            <button type="button" onclick="openDistributorModal()" style="width: 100%; background: rgba(255,255,255,0.12); color: #fff; text-align: center; padding: 8px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; border: 1px solid rgba(255,255,255,0.2); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+              <i class="fa-solid fa-chart-line-up"></i> View Performance Leaderboard
+            </button>
+          </div>
+        </div>
+
+        <div class="kpi-card" style="border-top: 4px solid #10B981;">
+          <div class="kpi-meta">
+            <span class="kpi-label">AVG SCANS / DISTRIBUTOR</span>
+            <span class="kpi-pill pill-emerald"><i class="fa-solid fa-box-open"></i> Volume Driven</span>
+          </div>
+          <div class="kpi-value" id="wfCompleted">--</div>
+          <div class="kpi-sub">Average scans processed per distributor channel</div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Retailer Health & Retention Intelligence -->
+    <section class="growth-section" style="margin-top: 24px;">
+      <div class="section-title">
+        <i class="fa-solid fa-heart-pulse text-rose"></i>
+        <h3>Retailer Health & Retention Intelligence</h3>
+      </div>
+      <div class="kpi-grid">
+        <div class="kpi-card border-top-purple">
+          <div class="kpi-meta">
+            <span class="kpi-label">CATEGORY DIVERSITY INDEX</span>
+            <span class="kpi-pill pill-purple"><i class="fa-solid fa-layer-group"></i> Depth</span>
+          </div>
+          <div class="kpi-value" id="kpiCatDiversity">--</div>
+          <div class="kpi-sub" id="kpiCatDiversitySub">Avg categories per retailer</div>
+        </div>
+
+        <div class="kpi-card border-top-indigo" id="cardHighestDiversity" onclick="openHighestDiversityModal()" style="cursor: pointer;" title="Click to view retailers in this state">
+          <div class="kpi-meta">
+            <span class="kpi-label">HIGHEST DIVERSITY STATE</span>
+            <span class="kpi-pill pill-indigo"><i class="fa-solid fa-award"></i> Top State</span>
+          </div>
+          <div class="kpi-value kpi-value-sm" id="kpiTopDiversityState">--</div>
+          <div class="kpi-sub" id="kpiTopDiversityStateSub">--</div>
+          <div style="margin-top: 12px;">
+            <button type="button" onclick="openHighestDiversityModal()" style="width: 100%; background: rgba(255,255,255,0.12); color: #fff; text-align: center; padding: 8px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; border: 1px solid rgba(255,255,255,0.2); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+              <i class="fa-solid fa-chart-pie"></i> View Insights & Data
+            </button>
+          </div>
+        </div>
+
       </div>
     </section>
 
@@ -180,15 +461,6 @@
       </div>
 
       <div class="filters-grid">
-        <div class="filter-item date-filter-item">
-          <label for="filterStartDate"><i class="fa-solid fa-calendar-days"></i> From Date</label>
-          <input type="date" id="filterStartDate" value="2026-07-01" min="2026-07-01" max="2026-07-31">
-        </div>
-
-        <div class="filter-item date-filter-item">
-          <label for="filterEndDate"><i class="fa-solid fa-calendar-day"></i> To Date</label>
-          <input type="date" id="filterEndDate" value="2026-07-31" min="2026-07-01" max="2026-07-31">
-        </div>
 
         <div class="filter-item">
           <label for="filterState"><i class="fa-solid fa-location-dot"></i> State Filter</label>
@@ -213,7 +485,16 @@
           </select>
         </div>
 
-        <div class="filter-item search-item">
+        
+        <div class="filter-item">
+          <label for="filterActiveStatus"><i class="fa-solid fa-user-check"></i> Retailer Status</label>
+          <select id="filterActiveStatus">
+            <option value="ALL">All Retailers (Active + Inactive)</option>
+            <option value="ACTIVE">Active Retailers Only (&ge; 1 Box)</option>
+            <option value="INACTIVE">Inactive Retailers Only (0 Boxes)</option>
+          </select>
+        </div>
+<div class="filter-item search-item">
           <label for="searchQuery"><i class="fa-solid fa-magnifying-glass"></i> Search Retailer / City</label>
           <div class="search-input-wrapper">
             <input type="text" id="searchQuery" placeholder="Search by name, mobile, city, pincode...">
@@ -229,7 +510,7 @@
       <div class="chart-card span-full">
         <div class="chart-card-header">
           <div>
-            <h3><i class="fa-solid fa-chart-line text-blue"></i> Daily Scanning Volume & Moving Velocity (July 2026)</h3>
+            <h3><i class="fa-solid fa-chart-line text-blue"></i> Daily Scanning Volume & Moving Velocity <span id="titleDailyTrendPeriod" style="font-size: 13px; color: var(--text-secondary); font-weight: 500;">(Jan 2026 to Till Date)</span></h3>
             <p class="chart-subtitle">Day-by-day scan distribution with B5 (0.5 Box) vs B10 (1.0 Box) breakdown and 7-day rolling trend</p>
           </div>
           <div class="chart-actions">
@@ -241,68 +522,293 @@
         </div>
       </div>
 
-      <!-- Chart 2: State Volume vs Retailer Intensity (Half Width) -->
-      <div class="chart-card span-half">
+      <!-- India Map & State Geographic Performance Hub (Section 3 & 6 in Business Requirements) -->
+      <div class="chart-card span-full">
         <div class="chart-card-header">
           <div>
-            <h3><i class="fa-solid fa-chart-column text-emerald"></i> State Analysis: Total Scans vs Retailer Intensity</h3>
-            <p class="chart-subtitle">Total volume (Bar) vs Average Scans per Retailer (Line / Indicator)</p>
+            <h3><i class="fa-solid fa-map-location-dot text-cyan"></i> India Map — Retailer Distribution & State Scanning Performance</h3>
+            <p class="chart-subtitle">Geographic visualization of scan volumes, retailer penetration, and active distributor density by state. Click any state to filter.</p>
+          </div>
+          <div class="chart-actions">
+            <span class="badge badge-subtle" id="badgeSelectedState">National View (All States)</span>
           </div>
         </div>
-        <div class="chart-canvas-wrapper" style="height: 290px;">
-          <canvas id="stateAnalysisChart"></canvas>
+
+        <div class="map-breadcrumbs" id="mapBreadcrumbs"></div>
+        <div class="india-map-wrapper">
+                    <div class="india-svg-container" id="indiaSvgContainer" style="width:100%; height:520px; border-radius:12px; overflow:hidden; position:relative; background:#081224; border:1px solid rgba(255,255,255,0.08);">
+            <div class="map-tooltip" id="mapTooltip" style="display:none; position:absolute; z-index:100; pointer-events:none; background:rgba(10,20,40,0.95); border:1px solid rgba(59,130,246,0.5); border-radius:8px; padding:8px 12px; color:#FFF; font-size:12px; box-shadow:0 4px 16px rgba(0,0,0,0.6);"></div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 14px; background: rgba(0,0,0,0.2); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+            <div style="font-size: 14px; font-weight: 700; color: var(--text-primary); border-bottom: 1px solid var(--border-color); padding-bottom: 8px;" id="lblStateDetailsTitle">
+              <i class="fa-solid fa-location-crosshairs text-primary"></i> State Intelligence Overview
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+              <div style="background: var(--bg-card); padding: 10px; border-radius: 6px; border: 1px solid var(--border-color);">
+                <div style="font-size: 10px; color: var(--text-muted); font-weight: 700;">TOTAL SCANS</div>
+                <div style="font-size: 18px; font-weight: 800; color: #60A5FA;" id="mapStateScans">--</div>
+              </div>
+              <div style="background: var(--bg-card); padding: 10px; border-radius: 6px; border: 1px solid var(--border-color);">
+                <div style="font-size: 10px; color: var(--text-muted); font-weight: 700;">BOX COUNT</div>
+                <div style="font-size: 18px; font-weight: 800; color: #34D399;" id="mapStateBoxes">--</div>
+              </div>
+              <div style="background: var(--bg-card); padding: 10px; border-radius: 6px; border: 1px solid var(--border-color);">
+                <div style="font-size: 10px; color: var(--text-muted); font-weight: 700;">ACTIVE RETAILERS</div>
+                <div style="font-size: 18px; font-weight: 800; color: #818CF8;" id="mapStateActiveRets">--</div>
+              </div>
+              <div style="background: var(--bg-card); padding: 10px; border-radius: 6px; border: 1px solid var(--border-color);">
+                <div style="font-size: 10px; color: var(--text-muted); font-weight: 700;">ACTIVATION %</div>
+                <div style="font-size: 18px; font-weight: 800; color: #FBBF24;" id="mapStateActPct">--</div>
+              </div>
+            </div>
+
+            <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.5; margin-top: 4px;">
+              <div>• Total Registered Retailers: <strong id="mapStateTotalRets" style="color: var(--text-primary);">--</strong></div>
+              <div>• Inactive Retailers (Zero Scans): <strong id="mapStateInactiveRets" style="color: #F43F5E;">--</strong></div>
+              <div>• Active Distributors: <strong id="mapStateDistCount" style="color: #60A5FA;">--</strong></div>
+              <div>• % Share of India Scans: <strong id="mapStateVolShare" style="color: #34D399;">--</strong></div>
+            </div>
+
+            <button id="btnStateDrillDown" class="btn btn-sm btn-outline" style="margin-top: 6px; background: rgba(59, 130, 246, 0.15); border-color: rgba(59, 130, 246, 0.3); color: #60A5FA;">
+              <i class="fa-solid fa-filter"></i> Filter Dashboard by Selected State
+            </button>
+
+            <!-- District Breakdown Table -->
+            <div id="districtBreakdownSection" style="margin-top: 12px; display: none;">
+              <div style="font-size: 13px; font-weight: 700; color: var(--text-primary); border-top: 1px solid var(--border-color); padding-top: 10px; margin-bottom: 8px;">
+                <i class="fa-solid fa-city text-cyan"></i> District / City Breakdown
+              </div>
+              <div class="table-responsive" style="max-height: 300px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 6px;">
+                <table class="data-table" style="font-size: 11px;">
+                  <thead>
+                    <tr>
+                      <th>District / City</th>
+                      <th style="text-align: right;">Total</th>
+                      <th style="text-align: right; color: #34D399;">Active</th>
+                      <th style="text-align: right; color: #FB7185;">Inactive</th>
+                      <th style="text-align: right; color: #818CF8;">Scans</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tblMapDistrictBody">
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
-      <!-- Chart 3: Category Performance Breakdown (Half Width) -->
-      <div class="chart-card span-half">
-        <div class="chart-card-header">
+      <!-- NEW SECTION: STATE GROWTH OPPORTUNITY ANALYSIS -->
+      <div class="chart-card span-full">
+        <div class="chart-card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
           <div>
-            <h3><i class="fa-solid fa-chart-pie text-purple"></i> Category Volume Share & B5 Contribution</h3>
-            <p class="chart-subtitle">Distribution of scans across brand sub-categories</p>
+            <h3><i class="fa-solid fa-bullseye text-rose"></i> State Growth Opportunity: High Registered Base vs Low Scan Volumes</h3>
+            <p class="chart-subtitle" id="lblMainStateOpportunitySub">States with large retailer networks ranked by lowest scan volume in ascending order.</p>
+          </div>
+          <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+            <select id="selOpportunityStateFilter" onchange="renderMainStateOpportunity()" style="border: 1px solid var(--border-color); background: rgba(0,0,0,0.4); color: var(--text-primary); font-size: 11px; padding: 5px 10px; border-radius: 6px; cursor: pointer; font-weight: 600;">
+              <option value="SIGNIFICANT" selected>🏢 Significant Networks (≥50 Stores)</option>
+              <option value="ALL">🌐 All Operational States</option>
+            </select>
+            <select id="selOpportunitySortOrder" onchange="renderMainStateOpportunity()" style="border: 1px solid var(--border-color); background: rgba(0,0,0,0.4); color: var(--text-primary); font-size: 11px; padding: 5px 10px; border-radius: 6px; cursor: pointer; font-weight: 600;">
+              <option value="SCANS_ASC" selected>📈 Scans: Low to High (Ascending)</option>
+              <option value="SCANS_DESC">📉 Scans: High to Low</option>
+              <option value="RETAILERS_DESC">🏪 Retailers: High to Low</option>
+              <option value="RETAILERS_ASC">🏪 Retailers: Low to High</option>
+              <option value="INTENSITY_ASC">📊 Avg Scans / Store: Low to High</option>
+            </select>
           </div>
         </div>
-        <div class="chart-canvas-wrapper" style="height: 290px;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 16px; padding: 16px;">
+          <!-- Table Panel -->
+          <div class="table-container" style="margin: 0; max-height: 650px; overflow-y: auto; background: rgba(0,0,0,0.15); border: 1px solid var(--border-color); border-radius: 8px;">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th style="width: 45px;">Rank</th>
+                  <th>State Name</th>
+                  <th id="thOppRetailers" style="text-align: right; color: #60A5FA; cursor: pointer;" onclick="setOpportunitySort('RETAILERS_DESC')" title="Sort by Registered Retailers">Registered Base ⇅</th>
+                  <th id="thOppScans" style="text-align: right; color: #FBBF24; cursor: pointer;" onclick="setOpportunitySort('SCANS_ASC')" title="Sort by Scan Volume Ascending">Total Scans (Asc) 🔻</th>
+                  <th id="thOppIntensity" style="text-align: right; color: #A78BFA; cursor: pointer;" onclick="setOpportunitySort('INTENSITY_ASC')" title="Sort by Avg Scans per Retailer">Avg Scans/Store ⇅</th>
+                  <th style="text-align: right; color: #34D399;">Active Retailers</th>
+                  <th style="text-align: right; color: #FB7185;">Inactive Gap</th>
+                  <th style="text-align: right; color: #38BDF8;">Activation %</th>
+                </tr>
+              </thead>
+              <tbody id="tblMainStateOpportunityBody">
+                <!-- Populated dynamically -->
+              </tbody>
+            </table>
+          </div>
+          <!-- Chart Panel -->
+          <div style="background: rgba(0,0,0,0.15); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; height: 650px; position: relative;">
+            <h5 id="lblMainStateOpportunityChartTitle" style="margin: 0 0 8px 0; font-size: 12px; color: var(--text-primary);"><i class="fa-solid fa-chart-column text-amber"></i> State Scan Volume Profile (Ascending Order — Lowest to Highest)</h5>
+            <div style="height: calc(100% - 24px); width: 100%;">
+              <canvas id="chartMainStateOpportunity"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Category Performance Breakdown (Full Width) -->
+      <div class="chart-card span-full">
+        <div class="chart-card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+          <div>
+            <h3><i class="fa-solid fa-chart-pie text-purple"></i> Category Volume Share & B5 Contribution</h3>
+            <p class="chart-subtitle">Ranked volume share & packaging split (Click blue bar for B10 Full Box, click green bar for B5 Half Box drilldown)</p>
+          </div>
+          <div style="display: flex; gap: 6px; align-items: center;">
+            <span class="badge" style="background: rgba(99,102,241,0.15); color: #818CF8; font-weight: 700; font-size: 11px; padding: 5px 12px; border-radius: 6px; border: 1px solid rgba(99,102,241,0.3); display: flex; align-items: center; gap: 6px;">
+              <i class="fa-solid fa-bars-staggered"></i> Ranked Bar Analysis
+            </span>
+          </div>
+        </div>
+        <div class="chart-canvas-wrapper" style="height: 480px; position: relative;">
           <canvas id="categoryChart"></canvas>
         </div>
       </div>
 
-      <!-- Chart 4: Day of Week Pattern (1/3 Width) -->
-      <div class="chart-card span-third">
+      <!-- Chart 4: Day of Week Pattern (Half Width) -->
+      <div class="chart-card span-half">
         <div class="chart-card-header">
           <div>
             <h3><i class="fa-solid fa-calendar-week text-amber"></i> Day of Week Scan Activity</h3>
-            <p class="chart-subtitle">Trading weekday velocity</p>
+            <p class="chart-subtitle">Trading weekday velocity across active scanning days</p>
           </div>
         </div>
-        <div class="chart-canvas-wrapper" style="height: 240px;">
+        <div class="chart-canvas-wrapper" style="height: 270px;">
           <canvas id="dowChart"></canvas>
         </div>
       </div>
 
-      <!-- Chart 5: Retailer Tiers & Pareto (1/3 Width) -->
-      <div class="chart-card span-third">
-        <div class="chart-card-header">
-          <div>
-            <h3><i class="fa-solid fa-layer-group text-indigo"></i> Retailer Segmentation Tiers</h3>
-            <p class="chart-subtitle">Gold (>50), Silver (21-50), Bronze (5-20), Low (<5)</p>
-          </div>
-        </div>
-        <div class="chart-canvas-wrapper" style="height: 240px;">
-          <canvas id="retailerTierChart"></canvas>
-        </div>
-      </div>
-
-      <!-- Chart 6: Packaging Breakdown (1/3 Width) -->
-      <div class="chart-card span-third">
+      <!-- Chart 5: Packaging Breakdown (Half Width) -->
+      <div class="chart-card span-half">
         <div class="chart-card-header">
           <div>
             <h3><i class="fa-solid fa-boxes-packing text-cyan"></i> Packaging UOM Mix</h3>
             <p class="chart-subtitle">Box of 5 (B5 = 0.5) vs Box of 10 (B10 = 1.0)</p>
           </div>
         </div>
-        <div class="chart-canvas-wrapper" style="height: 240px;">
+        <div class="chart-canvas-wrapper" style="height: 270px;">
           <canvas id="uomMixChart"></canvas>
+        </div>
+      </div>
+      
+      <!-- Chart 7: Top 10 Power Retailers (Full Width) -->
+      <div class="chart-card span-full">
+        <div class="chart-card-header" style="display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <h3><i class="fa-solid fa-trophy text-amber"></i> Top 10 Power Retailers (Leaderboard by Scan Volume)</h3>
+            <p class="chart-subtitle">Retailers with the highest scan activity across July 2026 (mapped by City and State).</p>
+          </div>
+          <button class="btn btn-outline" onclick="openActiveRetailersModal()" style="font-size: 11px; padding: 5px 12px; background: rgba(245,158,11,0.15); border-color: rgba(245,158,11,0.3); color: #F59E0B; font-weight: 700; white-space: nowrap;">
+            <i class="fa-solid fa-store"></i> View Active Retailers
+          </button>
+        </div>
+        <div class="chart-canvas-wrapper" style="height: 340px;">
+          <canvas id="topRetailersChart"></canvas>
+        </div>
+      </div>
+
+
+      <!-- Chart 8: Hourly Scan Activity (Half Width) -->
+      <div class="chart-card span-half">
+        <div class="chart-card-header">
+          <div>
+            <h3><i class="fa-solid fa-clock text-blue"></i> Hourly Scan Activity Trends</h3>
+            <p class="chart-subtitle">Scan volume distribution by hour of the day</p>
+          </div>
+        </div>
+        <div class="chart-canvas-wrapper" style="height: 320px;">
+          <canvas id="hourlyActivityChart"></canvas>
+        </div>
+      </div>
+      <!-- Chart 9: Distributor Performance (Half Width) -->
+      <div class="chart-card span-half">
+        <div class="chart-card-header" style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;">
+          <div>
+            <h3 style="display: flex; align-items: center; gap: 8px;">
+              <i class="fa-solid fa-trophy text-amber"></i> Distributor Channel Volume Leaderboard
+            </h3>
+            <p class="chart-subtitle" style="white-space: normal; line-height: 1.4; margin-top: 4px;">
+              Ranking top distributor channels by scan volume & box distribution across regions.
+            </p>
+          </div>
+          <button class="btn btn-outline" onclick="openDistributorModal()" style="font-size: 11px; padding: 5px 12px; background: rgba(99,102,241,0.15); border-color: rgba(99,102,241,0.3); color: #818CF8; font-weight: 700; white-space: nowrap; flex-shrink: 0;">
+            <i class="fa-solid fa-table-list"></i> Full Sheet
+          </button>
+        </div>
+
+        <!-- Quick Summary Stats Bar -->
+        <div id="distributorLeaderboardStats" style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;">
+          <!-- Dynamically rendered by JS -->
+        </div>
+
+        <div class="chart-canvas-wrapper" style="height: 320px;">
+          <canvas id="workflowFunnelChart"></canvas>
+        </div>
+      </div>
+      
+      <!-- State x Category Performance Matrix (Section 7 in Business Requirements) -->
+      <div class="chart-card span-full">
+        <div class="chart-card-header" style="display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <h3><i class="fa-solid fa-table-cells text-purple"></i> Category Breakdown — State-wise Adoption Matrix</h3>
+            <p class="chart-subtitle">Cross-tabulation analyzing product category scanning intensity across key states to identify expansion gaps.</p>
+          </div>
+          <span class="badge badge-subtle">Category x State Cross-Tab</span>
+        </div>
+        <div class="matrix-container">
+          <table class="matrix-table" id="tblStateCategoryMatrix">
+            <thead>
+              <tr id="headerStateCatMatrix">
+                <th>State Name</th>
+                <!-- Rendered dynamically -->
+              </tr>
+            </thead>
+            <tbody id="bodyStateCatMatrix">
+              <!-- Rendered dynamically -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Channel Partner & Distributor Performance Leaderboard Matrix (Section 2 & 4 in Business Requirements) -->
+      <div class="chart-card span-full">
+        <div class="chart-card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+          <div>
+            <h3><i class="fa-solid fa-trophy text-amber"></i> Channel Partner & Distributor Performance Leaderboard</h3>
+            <p class="chart-subtitle">Comprehensive ranking matrix evaluating distributor channel volume, retailer activation %, and category strength.</p>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button class="toggle-btn active" id="btnDistFilterAll" onclick="filterDistributorLeaderboard('ALL')">All Distributors</button>
+            <button class="toggle-btn" id="btnDistFilterTop" onclick="filterDistributorLeaderboard('TOP10')">Top 10 Leaders</button>
+            <button class="toggle-btn" id="btnDistFilterBottom" onclick="filterDistributorLeaderboard('BOTTOM10')">Underperforming (Bottom 10)</button>
+          </div>
+        </div>
+        <div class="table-container" style="max-height: 400px; overflow-y: auto;">
+          <table class="data-table" id="tblDistributorLeaderboardMatrix">
+            <thead>
+              <tr>
+                <th style="width: 60px; text-align: center;">Rank</th>
+                <th>Distributor Name</th>
+                <th>State / Territory</th>
+                <th style="text-align: right;">Total Retailers</th>
+                <th style="text-align: right;">Active Retailers</th>
+                <th style="text-align: right;">Inactive Retailers</th>
+                <th style="text-align: right;">Activation Rate %</th>
+                <th style="text-align: right;">Total Scans</th>
+                <th style="text-align: right;">Avg Scans / Retailer</th>
+                <th>Highest Category</th>
+                <th>Lowest Category</th>
+              </tr>
+            </thead>
+            <tbody id="bodyDistributorLeaderboardMatrix">
+              <!-- Rendered dynamically -->
+            </tbody>
+          </table>
         </div>
       </div>
     </section>
@@ -312,16 +818,25 @@
       <div class="tables-header">
         <div class="tabs-nav">
           <button class="tab-btn active" data-tab="tabQuery1">
-            <i class="fa-solid fa-table-list"></i> Query 1: Detailed Scans (Mapped Box Count)
+            <i class="fa-solid fa-table-list"></i> Detailed Scans (Mapped Box Count)
           </button>
           <button class="tab-btn" data-tab="tabRetailers">
-            <i class="fa-solid fa-users"></i> Query 2: Retailer Summary
+            <i class="fa-solid fa-users"></i> Retailer Summary
+          </button>
+          <button class="tab-btn" data-tab="tabTotalRetailers">
+            <i class="fa-solid fa-user-group"></i> Total Retailers
           </button>
           <button class="tab-btn" data-tab="tabStates">
             <i class="fa-solid fa-map"></i> State Rankings
           </button>
           <button class="tab-btn" data-tab="tabCategories">
             <i class="fa-solid fa-tags"></i> Category Breakdown
+          </button>
+          <button class="tab-btn" data-tab="tabDrillDown">
+            <i class="fa-solid fa-sitemap"></i> Territory Hierarchy
+          </button>
+          <button class="tab-btn" data-tab="tabNetworkTree">
+            <i class="fa-solid fa-diagram-project"></i> Network Tree
           </button>
         </div>
         
@@ -330,7 +845,7 @@
         </div>
       </div>
 
-      <!-- Tab 1: Detailed Scans (Query 1 + Box_count) -->
+      <!-- Tab 1: Detailed Scans -->
       <div class="tab-pane active" id="tabQuery1">
         <div class="table-responsive">
           <table class="data-table" id="tblQuery1">
@@ -359,7 +874,7 @@
         </div>
       </div>
 
-      <!-- Tab 2: Retailer Summary (Query 2) -->
+      <!-- Tab 2: Retailer Summary -->
       <div class="tab-pane" id="tabRetailers">
         <div class="table-responsive">
           <table class="data-table" id="tblRetailers">
@@ -370,15 +885,48 @@
                 <th>Mobile Number</th>
                 <th>City</th>
                 <th>State</th>
-                <th>Total Scans</th>
+                <th style="color: #10B981;">Total Scans</th>
                 <th class="th-highlight">Calculated Box Count</th>
-                <th>B5 Scans (0.5)</th>
-                <th>B10 Scans (1.0)</th>
+                <th>B5 Scans (0.5 Box)</th>
+                <th>B10 Scans (1.0 Box)</th>
                 <th>Active Days</th>
                 <th>Engagement Tier</th>
               </tr>
             </thead>
             <tbody id="tblRetailersBody">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Tab: Total Retailers (Active + Inactive from all_retailers) -->
+      <div class="tab-pane" id="tabTotalRetailers">
+        <div style="display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap;">
+          <input type="text" id="txtTotalRetailersSearch" placeholder="Search by name, mobile, city, state, distributor..." style="flex:1; min-width:250px; padding:8px 14px; background:var(--bg-card); color:#FFF; border:1px solid var(--border-color); border-radius:6px; font-size:12px;" oninput="filterTotalRetailersTable()" />
+          <select id="selTotalRetailersStatus" style="padding:8px 14px; background:var(--bg-card); color:#FFF; border:1px solid var(--border-color); border-radius:6px; font-size:12px;" onchange="filterTotalRetailersTable()">
+            <option value="all">All Status</option>
+            <option value="active">Active Only</option>
+            <option value="inactive">Inactive Only</option>
+          </select>
+        </div>
+        <div id="totalRetailersCount" style="font-size:12px; color:var(--text-secondary); margin-bottom:8px;">Showing 0 retailers</div>
+        <div class="table-responsive">
+          <table class="data-table" id="tblTotalRetailers">
+            <thead>
+              <tr>
+                <th>Retailer ID</th>
+                <th>Retailer Name</th>
+                <th>Mobile Number</th>
+                <th>City</th>
+                <th>State</th>
+                <th>Distributor</th>
+                <th>6M Scans</th>
+                <th>6M Boxes</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="tblTotalRetailersBody">
               <!-- Dynamically populated -->
             </tbody>
           </table>
@@ -420,9 +968,12 @@
               <h3 id="catHighName">Comfy Trunk & Briefs</h3>
               <span class="cat-highlight-stat badge pill-emerald" id="catHighShare">21.3% Share</span>
             </div>
-            <div class="cat-highlight-metrics">
-              <div><span class="lbl">Total Scans:</span> <strong id="catHighScans">1,459</strong></div>
-              <div><span class="lbl">B5 Contribution:</span> <strong id="catHighBoxPct">58.4%</strong></div>
+            <div class="cat-highlight-metrics" style="grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));">
+              <div><span class="lbl">Total Scans:</span> <strong id="catHighScans" style="color: #60A5FA;">--</strong></div>
+              <div><span class="lbl">Unique Retailers:</span> <strong id="catHighRetailers" style="color: #34D399;">--</strong></div>
+              <div><span class="lbl">B10 Scans (Full):</span> <strong id="catHighB10" style="color: #818CF8;">--</strong></div>
+              <div><span class="lbl">B5 Scans (Half):</span> <strong id="catHighB5" style="color: #FBBF24;">--</strong></div>
+              <div><span class="lbl">Calculated Boxes:</span> <strong id="catHighBoxes" style="color: var(--accent-amber);">--</strong></div>
             </div>
           </div>
 
@@ -434,9 +985,12 @@
               <h3 id="catLowName">WINTER</h3>
               <span class="cat-highlight-stat badge pill-rose" id="catLowShare">1.8% Share</span>
             </div>
-            <div class="cat-highlight-metrics">
-              <div><span class="lbl">Total Scans:</span> <strong id="catLowScans">122</strong></div>
-              <div><span class="lbl">Unique Retailers:</span> <strong id="catLowRetailers">45 Outlets</strong></div>
+            <div class="cat-highlight-metrics" style="grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));">
+              <div><span class="lbl">Total Scans:</span> <strong id="catLowScans" style="color: #60A5FA;">--</strong></div>
+              <div><span class="lbl">Unique Retailers:</span> <strong id="catLowRetailers" style="color: #34D399;">--</strong></div>
+              <div><span class="lbl">B10 Scans (Full):</span> <strong id="catLowB10" style="color: #818CF8;">--</strong></div>
+              <div><span class="lbl">B5 Scans (Half):</span> <strong id="catLowB5" style="color: #FBBF24;">--</strong></div>
+              <div><span class="lbl">Calculated Boxes:</span> <strong id="catLowBoxes" style="color: var(--accent-amber);">--</strong></div>
             </div>
           </div>
         </div>
@@ -462,6 +1016,44 @@
             </tbody>
           </table>
         </div>
+      </div>
+      <!-- Tab 5: Territory Hierarchy & Drill-Down Matrix -->
+      <div class="tab-pane" id="tabDrillDown">
+        <div style="margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; background: var(--bg-card-subtle); padding: 12px 16px; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+          <div>
+            <h4 style="font-size: 15px; font-weight: 700; color: var(--text-primary); margin: 0; display: flex; align-items: center; gap: 8px;">
+              <i class="fa-solid fa-sitemap text-primary"></i> Territory Hierarchy Matrix
+            </h4>
+            <p style="font-size: 12px; color: var(--text-secondary); margin: 2px 0 0 0;">State → District → Zone → Distributor → Retailer tree view</p>
+          </div>
+          
+          <button id="btnOpenTerritoryFlow" class="btn btn-outline" style="background: rgba(59, 130, 246, 0.15); border-color: rgba(59, 130, 246, 0.3); color: #60A5FA;">
+            <i class="fa-solid fa-arrow-up-right-from-square"></i> Open Multi-Page Territory Flow Explorer
+          </button>
+        </div>
+
+        <div class="table-responsive">
+          <table class="data-table" id="tblDrillDown">
+            <thead>
+              <tr>
+                <th>Hierarchy Level (State → District → Zone → Distributor → Retailer)</th>
+                <th>Total Scans</th>
+                <th class="th-highlight">Calculated Box Count</th>
+                <th>B5 Scans (0.5)</th>
+                <th>B10 Scans (1.0)</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="tblDrillDownBody">
+              <!-- Dynamically populated hierarchy -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+      
+      <!-- Tab 6: Network Tree (ECharts) -->
+      <div class="tab-pane" id="tabNetworkTree">
+        <div id="networkTreeContainer" style="width: 100%; height: 600px; border-radius: var(--radius-md); border: 1px solid var(--border-color); background: var(--bg-card); overflow: hidden;"></div>
       </div>
     </section>
 
@@ -495,17 +1087,1763 @@
           <h4>4. Nurture Bronze & Silver Retailer Tiers</h4>
           <p>Over <strong>45% of retailers</strong> scan between 5-20 times per month. Targeted mid-month bonus gamification can nudge these occasional scanners into Gold-tier (>50 scans) power contributors.</p>
         </div>
+        
+        <div class="rec-card">
+          <div class="rec-badge bg-blue-soft text-blue">Hourly Optimization</div>
+          <h4>5. Optimize Engagement Timing</h4>
+          <p>By analyzing <strong>Hourly Scan Activity</strong>, marketing teams can deploy SMS/WhatsApp promotional nudges 1-2 hours before the typical peak scanning windows to maximize engagement.</p>
+        </div>
       </div>
     </section>
 
     <!-- Footer -->
     <footer class="dashboard-footer">
-      <p>JGH Retailer Scan Intelligence • Query 1 & Query 2 Integrated Analytics Platform • Powered by Antigravity AI</p>
+      <p>JGH Retailer Scan Intelligence • Integrated Analytics Platform • Powered by Antigravity AI</p>
       <p class="footer-sub">Confidential • For Internal Business Intelligence & Client Reporting</p>
     </footer>
 
   </div>
 
-  <script src="app.js"></script>
+  <!-- ===================================================
+       NEW PAGE: STATE DISTRIBUTOR OPPORTUNITY DRILLDOWN VIEW
+  =================================================== -->
+  <div id="stateDistributorOpportunityPageView" style="display: none; flex-direction: column; gap: 20px; max-width: 1600px; margin: 0 auto; padding: 24px;" class="container">
+    
+    <!-- Top Navigation & Control Toolbar -->
+    <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-color); padding-bottom: 16px; flex-wrap: wrap; gap: 16px;">
+      <div>
+        <button onclick="goBackFromDrilldown()" class="btn btn-outline btn-sm" style="margin-bottom: 8px; background: rgba(255, 255, 255, 0.08); color: #FFF; border: 1px solid var(--border-color); border-radius: 6px;">
+          <i class="fa-solid fa-arrow-left"></i> <span id="lblDrilldownBackBtn">Back to Dashboard</span>
+        </button>
+        <h2 style="margin: 0; color: var(--text-primary); font-size: 22px; font-weight: 800;" id="lblDrilldownStateHeader">📍 State Intelligence & Performance View</h2>
+        <p style="color: var(--text-muted); font-size: 13px; margin: 4px 0 0 0;">
+          State-level distributor network & category analytics — <span id="lblDrilldownMode" style="color: #60A5FA; font-weight: 700;">Selected Period</span>
+        </p>
+      </div>
+
+      <!-- Controls Toolbar: Status filter, Date filter for all months & specific date + Export -->
+      <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+        
+        <!-- State Status Filter Segmented Control -->
+        <div class="modal-view-toggle" style="background: rgba(0,0,0,0.35); padding: 4px; border-radius: 8px; border: 1px solid var(--border-color); display: flex; gap: 4px; align-items: center;">
+          <button class="toggle-btn active" id="btnDrilldownAll" onclick="setDrilldownStatusFilter('all')" style="padding: 5px 12px; font-size: 11.5px; font-weight: 700;">🌐 All Stores</button>
+          <button class="toggle-btn" id="btnDrilldownActive" onclick="setDrilldownStatusFilter('active')" style="padding: 5px 12px; font-size: 11.5px; font-weight: 700;">🟢 Active</button>
+          <button class="toggle-btn" id="btnDrilldownInactive" onclick="setDrilldownStatusFilter('inactive')" style="padding: 5px 12px; font-size: 11.5px; font-weight: 700;">🔴 Last 6M Inactive</button>
+          <button class="toggle-btn" id="btnDrilldownDormant" onclick="setDrilldownStatusFilter('dormant')" style="padding: 5px 12px; font-size: 11.5px; font-weight: 700;">⚠️ Last 2M No Scan</button>
+        </div>
+
+        <!-- State Date Filter Box -->
+        <div class="header-date-filter-box" style="display: flex; align-items: center; gap: 8px; background: rgba(255, 255, 255, 0.05); padding: 5px 12px; border-radius: 8px; border: 1px solid var(--border-color);">
+          <i class="fa-regular fa-calendar-days text-brand" style="font-size: 13px;"></i>
+          
+          <!-- Presets for All Months -->
+          <select id="selDrilldownDatePreset" onchange="onDrilldownDatePresetChange()" style="border: 1px solid var(--border-color); background: rgba(0,0,0,0.4); color: var(--text-primary); font-size: 12px; padding: 5px 10px; border-radius: 6px; outline: none; cursor: pointer; font-family: inherit; font-weight: 600;">
+            <option value="JAN_TILL_DATE" selected>📅 Jan 2026 – Till Date (Full View)</option>
+            <option value="AUG_SEP_2026">📅 Aug 2026 – Till Date</option>
+            <option value="AUG_2026">📅 August 2026</option>
+            <option value="JULY_2026">📅 July 2026</option>
+            <option value="JUNE_2026">📅 June 2026</option>
+            <option value="MAY_2026">📅 May 2026</option>
+            <option value="APRIL_2026">📅 April 2026</option>
+            <option value="MARCH_2026">📅 March 2026</option>
+            <option value="FEB_2026">📅 February 2026</option>
+            <option value="JAN_2026">📅 January 2026</option>
+            <option value="CUSTOM">⚙️ Specific Date / Custom Range</option>
+          </select>
+
+          <!-- Specific Date Pickers -->
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <input type="date" id="drilldownStartDate" value="2026-01-01" min="2026-01-01" max="2026-09-29" onclick="try{this.showPicker()}catch(e){}" onfocus="try{this.showPicker()}catch(e){}" onchange="onDrilldownCustomDateChange()" oninput="onDrilldownCustomDateChange()" style="border: 1px solid var(--border-color); background: rgba(0,0,0,0.3); color: var(--text-primary); font-size: 12px; padding: 4px 8px; border-radius: 6px; outline: none; cursor: pointer; font-family: inherit; font-weight: 600;" title="Click to pick Start Date" />
+            <span style="color: var(--text-muted); font-size: 12px; font-weight: 600;">to</span>
+            <input type="date" id="drilldownEndDate" value="2026-09-29" min="2026-01-01" max="2026-09-29" onclick="try{this.showPicker()}catch(e){}" onfocus="try{this.showPicker()}catch(e){}" onchange="onDrilldownCustomDateChange()" oninput="onDrilldownCustomDateChange()" style="border: 1px solid var(--border-color); background: rgba(0,0,0,0.3); color: var(--text-primary); font-size: 12px; padding: 4px 8px; border-radius: 6px; outline: none; cursor: pointer; font-family: inherit; font-weight: 600;" title="Click to pick End Date" />
+          </div>
+
+          <!-- Reset Filter Button -->
+          <button onclick="clearDrilldownDates()" class="btn btn-sm" style="background: rgba(239,68,68,0.15); color: #F87171; border: 1px solid rgba(239,68,68,0.3); padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer;" title="Reset Date Filter">
+            <i class="fa-solid fa-rotate-left"></i> Reset
+          </button>
+        </div>
+
+        <button id="btnExportDrilldownExcel" class="btn" style="background:#10B981; color:#FFF; font-weight:700; padding:8px 16px; border-radius:6px; border:none; cursor:pointer;" onclick="exportDrilldownExcel()">
+          <i class="fa-solid fa-file-excel"></i> Export State Excel
+        </button>
+      </div>
+    </div>
+
+    <!-- State KPI Summary Cards -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+      <div class="kpi-card" style="border-left: 4px solid #3B82F6; background: var(--bg-card); padding: 16px; border-radius: 8px;">
+        <div style="font-size: 11px; color: #93C5FD; font-weight: 700; text-transform: uppercase;">MAPPED DISTRIBUTORS</div>
+        <div style="font-size: 26px; font-weight: 800; color: #60A5FA; margin: 4px 0;" id="kpiDrilldownDistributorsCount">--</div>
+        <div style="font-size: 10px; color: var(--text-muted);">Active distributors in State</div>
+      </div>
+      <div class="kpi-card" style="border-left: 4px solid #6366F1; background: var(--bg-card); padding: 16px; border-radius: 8px; cursor: pointer;" onclick="setDrilldownStatusFilter('all')" title="Click to view All Registered Stores">
+        <div style="font-size: 11px; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">TOTAL REGISTERED STORES</div>
+        <div style="font-size: 26px; font-weight: 800; color: #818CF8; margin: 4px 0;" id="kpiDrilldownRegistered">--</div>
+        <div style="font-size: 10px; color: var(--text-muted);">Registered retailers in State</div>
+      </div>
+      <div class="kpi-card" style="border-left: 4px solid #10B981; background: var(--bg-card); padding: 16px; border-radius: 8px; cursor: pointer;" onclick="setDrilldownStatusFilter('active')" title="Click to filter Active Stores">
+        <div style="font-size: 11px; color: #A7F3D0; font-weight: 700; text-transform: uppercase;" id="lblKpiDrilldownActiveTitle">ACTIVE STORES</div>
+        <div style="font-size: 26px; font-weight: 800; color: #34D399; margin: 4px 0;" id="kpiDrilldownActive">--</div>
+        <div style="font-size: 10px; color: var(--text-muted);" id="lblKpiDrilldownActiveSub">Scanned at least 1 box</div>
+      </div>
+      <div class="kpi-card" style="border-left: 4px solid #F43F5E; background: var(--bg-card); padding: 16px; border-radius: 8px; cursor: pointer;" onclick="setDrilldownStatusFilter('inactive')" title="Click to filter Inactive Stores (Last 6M)">
+        <div style="font-size: 11px; color: #FECDD3; font-weight: 700; text-transform: uppercase;" id="lblKpiDrilldownInactiveTitle">INACTIVE GAP</div>
+        <div style="font-size: 26px; font-weight: 800; color: #FB7185; margin: 4px 0;" id="kpiDrilldownInactive">--</div>
+        <div style="font-size: 10px; color: var(--text-muted);" id="lblKpiDrilldownInactiveSub">0 scans recorded (Last 6M)</div>
+      </div>
+      <div class="kpi-card" style="border-left: 4px solid #F59E0B; background: var(--bg-card); padding: 16px; border-radius: 8px;">
+        <div style="font-size: 11px; color: #FDE68A; font-weight: 700; text-transform: uppercase;" id="lblKpiDrilldownScansTitle">SCAN & BOX VOLUME</div>
+        <div style="font-size: 18px; font-weight: 800; color: #FBBF24; margin: 4px 0;" id="kpiDrilldownScans">--</div>
+        <div style="font-size: 10px; color: var(--text-muted);" id="lblKpiDrilldownScansSub">Selected period volume</div>
+      </div>
+      <div class="kpi-card" style="border-left: 4px solid #8B5CF6; background: var(--bg-card); padding: 16px; border-radius: 8px;">
+        <div style="font-size: 11px; color: #DDD6FE; font-weight: 700; text-transform: uppercase;" id="lblKpiDrilldownTopCatTitle">TOP CATEGORY</div>
+        <div style="font-size: 16px; font-weight: 800; color: #A78BFA; margin: 4px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" id="kpiDrilldownTopCat">--</div>
+        <div style="font-size: 10px; color: var(--text-muted);" id="lblKpiDrilldownTopCatSub">Highest volume category</div>
+      </div>
+    </div>
+
+    <!-- Visual Charts Grid Panel -->
+    <div style="display: grid; grid-template-columns: 1fr; gap: 20px;">
+      
+      <!-- Row 1: Distributors Volume Ranking & Active vs Inactive Ratio -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(480px, 1fr)); gap: 20px;">
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <h3 id="lblChart1Title"><i class="fa-solid fa-truck-field text-cyan"></i> State Distributors Scan & Box Volume Ranking</h3>
+            <p class="chart-subtitle" id="lblChart1Sub">Distributors in this state ranked by scan volume. Click any distributor bar to open full details.</p>
+          </div>
+          <div class="chart-canvas-wrapper" style="position: relative; height: 340px; width: 100%;">
+            <canvas id="chartDrilldownDistScanVol"></canvas>
+          </div>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-card-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 8px;">
+            <div>
+              <h3 id="lblChart2Title"><i class="fa-solid fa-chart-pie text-emerald"></i> Distributor Active & Total Retailer Network Distribution</h3>
+              <p class="chart-subtitle" id="lblChart2Sub">Total and active retailers under each distributor in this state (Selected Period).</p>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <button id="btnToggleDistSort" onclick="toggleDistributorNetworkSort()" class="btn btn-sm" style="display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; font-size: 11.5px; font-weight: 700; border-radius: 6px; background: rgba(99, 102, 241, 0.2); color: #818CF8; border: 1px solid rgba(99, 102, 241, 0.4); cursor: pointer; transition: all 0.2s ease;">
+                <i id="iconDistSort" class="fa-solid fa-arrow-down-wide-short"></i>
+                <span id="lblDistSortText">Sort: High to Low (DESC)</span>
+              </button>
+            </div>
+          </div>
+          <div class="chart-canvas-wrapper" style="position: relative; height: 340px; width: 100%;">
+            <canvas id="chartDrilldownDistributors"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Row 2: Category Analysis — Top 10 vs Low 10 Categories in State -->
+      <div id="rowDrilldownCategoryCharts" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(480px, 1fr)); gap: 20px;">
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <h3><i class="fa-solid fa-trophy text-emerald"></i> <span id="lblDrilldownTopCatHeader">Top 10 Scanned Categories in State</span></h3>
+            <p class="chart-subtitle" id="lblDrilldownTopCatSubtitle">Highest volume categories scanned in this state. Click any category bar to open retailer visual breakdown.</p>
+          </div>
+          <div class="chart-canvas-wrapper" style="position: relative; height: 340px; width: 100%;">
+            <canvas id="chartDrilldownTop10Cat"></canvas>
+          </div>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <h3><i class="fa-solid fa-arrow-down-wide-short text-rose"></i> <span id="lblDrilldownLowCatHeader">Low 10 Scanned Categories in State</span></h3>
+            <p class="chart-subtitle" id="lblDrilldownLowCatSubtitle">Lowest volume categories scanned in this state. Click any category bar to open full breakdown.</p>
+          </div>
+          <div class="chart-canvas-wrapper" style="position: relative; height: 340px; width: 100%;">
+            <canvas id="chartDrilldownLow10Cat"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Raw Data Table Card -->
+      <div class="chart-card">
+        <div class="chart-card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+          <div>
+            <h3><i class="fa-solid fa-table text-indigo"></i> State Retailer Network & Distributor Master Audit Sheet</h3>
+            <p class="chart-subtitle">Complete store-by-store list. Click any distributor name to open their full interactive performance card.</p>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <input type="text" id="txtDrilldownSearch" placeholder="Search retailer, mobile, city, distributor..." style="padding: 8px 14px; border-radius: 6px; border: 1px solid var(--border-color); background: rgba(0,0,0,0.3); color:#FFF; font-size:12px; width:260px;" oninput="filterDrilldownTable()">
+          </div>
+        </div>
+        <div class="table-container" style="max-height: 440px; overflow-y: auto;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Retailer ID</th>
+                <th>Retailer Name</th>
+                <th>Mobile Number</th>
+                <th>City / District</th>
+                <th>Mapped Distributor Name</th>
+                <th style="text-align: right;">Total Scans</th>
+                <th style="text-align: right;">Total Boxes</th>
+                <th style="color: #34D399;">🥇 Top Category</th>
+                <th style="color: #60A5FA;">📅 Last Scan Date</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="tblDrilldownRetailersBody">
+              <!-- Populated dynamically -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dedicated Multi-Page Territory Flow Explorer Page Section -->
+  <div class="dashboard-wrapper" id="territoryFlowPageView" style="display: none; gap: 20px; max-width: 1600px; margin: 0 auto; padding: 24px;">
+    
+    <!-- Territory Flow Header Bar -->
+    <header class="top-nav" style="background: var(--bg-card); border-bottom: 2px solid var(--brand-primary); padding: 16px 24px;">
+      <div class="nav-brand" style="gap: 16px;">
+        <button id="btnBackToMainDashboard" class="btn btn-outline" style="background: rgba(59, 130, 246, 0.15); border-color: rgba(59, 130, 246, 0.3); color: #60A5FA; font-weight: 700; font-size: 13px; padding: 8px 16px;">
+          <i class="fa-solid fa-arrow-left"></i> Back to Main Dashboard
+        </button>
+        <div class="brand-text" style="margin-left: 8px;">
+          <h1 style="font-size: 19px; display: flex; align-items: center; gap: 8px; color: var(--text-primary);">
+            <i class="fa-solid fa-sitemap text-primary"></i> Territory Intelligence Flow & Page View
+          </h1>
+          <p class="subtitle" style="font-size: 12px; color: var(--text-secondary);">Multi-Level Page Flow: State → District → Zone → Distributor → Retailer</p>
+        </div>
+      </div>
+
+      <div class="nav-controls" style="gap: 12px;">
+        <div class="modal-view-toggle" style="background: var(--bg-main); padding: 3px; border-radius: 8px; border: 1px solid var(--border-color);">
+          <button class="toggle-btn active" id="btnPageVisualsFlow"><i class="fa-solid fa-layer-group"></i> Flow Cards & Charts</button>
+          <button class="toggle-btn" id="btnPageDataFlow"><i class="fa-solid fa-table"></i> Data Sheet</button>
+        </div>
+        <button id="btnExportPageTerritoryExcel" class="btn btn-outline" style="background: rgba(16, 185, 129, 0.15); border-color: rgba(16, 185, 129, 0.3); color: #34D399;">
+          <i class="fa-solid fa-file-excel text-success"></i> Export Territory Data
+        </button>
+      </div>
+    </header>
+
+    <!-- Control Bar: Breadcrumbs & Level Pills -->
+    <section style="background: var(--bg-card); padding: 14px 18px; border-radius: var(--radius-lg); border: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 12px;">
+      <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+        <!-- Breadcrumb Trail -->
+        <div class="territory-breadcrumb-bar" id="pageTerritoryBreadcrumb" style="flex: 1; min-width: 280px; margin: 0;">
+          <!-- Rendered dynamically by JS -->
+        </div>
+
+        <!-- Level Selector Pills -->
+        <div class="territory-level-pills" id="pageTerritoryLevelPills" style="display: flex; gap: 6px; flex-wrap: wrap;">
+          <button class="level-pill-btn active" data-level="STATE"><i class="fa-solid fa-map-location-dot"></i> 1. State</button>
+          <button class="level-pill-btn" data-level="DISTRICT"><i class="fa-solid fa-city"></i> 2. District</button>
+          <button class="level-pill-btn" data-level="ZONE"><i class="fa-solid fa-layer-group"></i> 3. Zone</button>
+          <button class="level-pill-btn" data-level="DISTRIBUTOR"><i class="fa-solid fa-warehouse"></i> 4. Distributor</button>
+          <button class="level-pill-btn" data-level="RETAILER"><i class="fa-solid fa-store"></i> 5. Retailer</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Visuals View Section -->
+    <section id="pageTerritoryViewVisuals" style="display: flex; flex-direction: column; gap: 20px;">
+      <!-- Level Breakdown Cards Grid -->
+      <div style="background: var(--bg-card); padding: 18px; border-radius: var(--radius-lg); border: 1px solid var(--border-color);">
+        <h4 id="pageTerritoryCardTitle" style="font-size: 15px; font-weight: 700; color: var(--text-primary); margin-bottom: 14px; display: flex; align-items: center; gap: 8px;">
+          <i class="fa-solid fa-grid-2 text-primary"></i> Select Territory to Drill Down
+        </h4>
+        <div class="territory-flow-cards" id="pageTerritoryCardsGrid">
+          <!-- Rendered dynamically by JS -->
+        </div>
+      </div>
+
+      <!-- Charts Grid Section -->
+      <div class="charts-grid">
+        <div class="chart-card span-half">
+          <div class="chart-card-header">
+            <h3 id="pageTerritoryTitleBar" style="font-size: 15px; font-weight: 700; color: var(--text-primary);"><i class="fa-solid fa-chart-column text-emerald"></i> Territory Volume Breakdown</h3>
+          </div>
+          <div class="chart-canvas-wrapper" style="height: 300px;">
+            <canvas id="chartPageTerritoryBar"></canvas>
+          </div>
+        </div>
+
+        <div class="chart-card span-half">
+          <div class="chart-card-header">
+            <h3 id="pageTerritoryTitlePie" style="font-size: 15px; font-weight: 700; color: var(--text-primary);"><i class="fa-solid fa-chart-pie text-purple"></i> Packaging Mix Breakdown</h3>
+          </div>
+          <div class="chart-canvas-wrapper" style="height: 300px;">
+            <canvas id="chartPageTerritoryPie"></canvas>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Data Sheet View Section -->
+    <section id="pageTerritoryViewData" style="display: none; background: var(--bg-card); padding: 18px; border-radius: var(--radius-lg); border: 1px solid var(--border-color);">
+      <div class="modal-actions" style="margin-bottom: 14px;">
+        <div class="search-input-wrapper" style="flex: 1;">
+          <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 12px; color: var(--text-muted);"></i>
+          <input type="text" id="pageTerritorySearch" placeholder="Search by retailer name, city, state, zone, distributor..." style="padding-left: 36px; width: 100%;">
+        </div>
+      </div>
+      <div class="table-responsive">
+        <table class="data-table" id="tblPageTerritorySheet">
+          <thead>
+            <tr>
+              <th>Retailer Name</th>
+              <th>Mobile Number</th>
+              <th>City / District</th>
+              <th>State</th>
+              <th>Zone</th>
+              <th>Distributor Name</th>
+              <th>Total Scans</th>
+              <th class="th-highlight">Calculated Box Units</th>
+            </tr>
+          </thead>
+          <tbody id="tblPageTerritoryBody">
+            <!-- Rendered dynamically -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- Upsell Opportunity Modal (Popup) -->
+  <div id="upsellModal" class="modal-overlay">
+    <div class="modal-content" style="max-width: 94%; width: 1300px;">
+      <div class="modal-header">
+        <h3>Upsell Target Retailers (Single Category Scanners)</h3>
+        <div class="modal-header-controls">
+          <div class="modal-view-toggle">
+            <button class="toggle-btn active" id="btnUpsellVisuals"><i class="fa-solid fa-chart-pie"></i> Visual Insights</button>
+            <button class="toggle-btn" id="btnUpsellData"><i class="fa-solid fa-table"></i> Raw Sheet</button>
+          </div>
+          <button id="btnCloseUpsell" class="btn-close">&times;</button>
+        </div>
+      </div>
+      <div class="modal-body">
+        <div class="modal-view-visuals" id="upsellViewVisuals">
+          
+          <!-- Top Compact Summary Banner -->
+          <div class="upsell-summary-banner" style="display: flex; gap: 16px; align-items: center; justify-content: space-between; background: rgba(15,23,42,0.6); padding: 12px 18px; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 16px;">
+            <div style="font-size: 12.5px; color: var(--text-secondary); max-width: 55%; line-height: 1.4;">
+              <strong style="color: #22D3EE;"><i class="fa-solid fa-circle-info"></i> Single Category Scanners Opportunity:</strong>
+              These <strong>2,013 retailers</strong> buy only 1 product category. Pitching a 2nd category doubles order value without acquiring new stores.
+            </div>
+            <div class="modal-stat-cards" id="upsellStatCards" style="margin: 0; gap: 12px; display: flex;"></div>
+          </div>
+
+          <!-- 2 Main Visual Charts Side-by-Side -->
+          <div class="modal-charts-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+            
+            <!-- Chart 1 (Left): Category Breakdown -->
+            <div class="chart-card">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <h5 style="margin:0;"><i class="fa-solid fa-layer-group text-primary"></i> Category Breakdown (What Single Category They Buy)</h5>
+                <span style="font-size: 10.5px; color: #22D3EE; font-weight: 600;"><i class="fa-solid fa-hand-pointer"></i> Click any bar to inspect retailers</span>
+              </div>
+              <div class="chart-container" style="height: 330px;">
+                <canvas id="chartUpsellModal" style="cursor: pointer;"></canvas>
+              </div>
+            </div>
+
+            <!-- Chart 2 (Right): Top States for Upsell -->
+            <div class="chart-card">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <h5 style="margin:0;"><i class="fa-solid fa-map-location-dot text-emerald"></i> Top States for Upsell</h5>
+                <span style="font-size: 10.5px; color: #34D399; font-weight: 600;"><i class="fa-solid fa-hand-pointer"></i> Click state to drill down</span>
+              </div>
+              <div class="chart-container" style="height: 330px;">
+                <canvas id="chartUpsellBar" style="cursor: pointer;"></canvas>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Inline Category Retailer Drilldown Table (Appears inside Visual tab when category bar is clicked!) -->
+          <div id="upsellCategoryRetailersContainer" style="margin-top: 16px; display: none; background: rgba(15,23,42,0.85); border: 1px solid rgba(6,182,212,0.4); border-radius: 8px; padding: 14px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+              <h5 style="margin: 0; color: #22D3EE; font-size: 14px;" id="lblUpsellSelectedCatHeader">
+                <i class="fa-solid fa-store"></i> Retailers Buying Only: <span id="txtUpsellSelectedCatName" style="color: #FFF; font-weight: 700;">--</span>
+              </h5>
+              <button onclick="document.getElementById('upsellCategoryRetailersContainer').style.display='none'" class="btn btn-sm btn-secondary" style="font-size: 11px;">
+                <i class="fa-solid fa-xmark"></i> Hide Table
+              </button>
+            </div>
+            <div class="table-container" style="max-height: 260px; overflow-y: auto;">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Retailer ID</th>
+                    <th>Retailer Name</th>
+                    <th>Mobile Number</th>
+                    <th>City</th>
+                    <th>State</th>
+                    <th>Mapped Distributor</th>
+                    <th style="text-align: right;">6M Total Scans</th>
+                  </tr>
+                </thead>
+                <tbody id="tblUpsellCategoryBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+        <div class="modal-view-data" id="upsellViewData" style="display: none;">
+          <div class="modal-actions">
+            <div class="search-input-wrapper" style="flex: 1;">
+            <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 12px; color: var(--text-muted);"></i>
+            <input type="text" id="upsellSearch" placeholder="Search by retailer name, mobile, city, state, or category..." style="padding-left: 36px; width: 100%;">
+          </div>
+          <button id="btnExportUpsellExcel" class="btn-export-sub">
+            <i class="fa-solid fa-file-excel"></i> Export Upsell List
+          </button>
+        </div>
+        <div class="table-container">
+          <table class="data-table" id="tblUpsellRetailers">
+            <thead>
+              <tr>
+                <th>Retailer ID</th>
+                <th>Retailer Name</th>
+                <th>Mobile Number</th>
+                <th>City</th>
+                <th>State</th>
+                <th>Current Focused Category</th>
+                <th style="color: #34D399;">Recommended Target Category</th>
+                <th>Cross-Sell Action</th>
+                <th style="text-align: right;">Total Scans</th>
+              </tr>
+            </thead>
+            <tbody id="tblUpsellBody">
+              <!-- Rendered dynamically -->
+            </tbody>
+          </table>
+        </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Single Category Visual Intelligence Modal (Popup Page) [NEW] -->
+  <div id="singleCategoryVisualModal" class="modal-overlay">
+    <div class="modal-content" style="max-width: 95%; width: 1380px;">
+      <div class="modal-header" style="background: rgba(15, 23, 42, 0.9); padding: 14px 20px;">
+        <div style="display: flex; align-items: center; gap: 14px;">
+          <button onclick="closeSingleCategoryVisualModal()" class="btn btn-sm btn-outline" style="display: inline-flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.08); cursor: pointer;">
+            <i class="fa-solid fa-arrow-left"></i> Back to Upsell Targets
+          </button>
+          <div>
+            <h3 style="font-size: 17px; margin: 0; display: flex; align-items: center; gap: 8px;" id="lblSingleCatModalTitle">
+              <i class="fa-solid fa-layer-group text-primary"></i> Category Visual Intelligence: <span id="txtSingleCatHeaderName" style="color: #22D3EE;">--</span>
+            </h3>
+            <div style="font-size: 11.5px; color: var(--text-muted);" id="lblSingleCatHeaderMeta">
+              Single-Category Retailer Profile & Distribution Analysis
+            </div>
+          </div>
+        </div>
+        <div class="modal-header-controls">
+          <div class="modal-view-toggle">
+            <button class="toggle-btn active" id="btnSingleCatVisuals" onclick="setSingleCategoryTab('visuals')"><i class="fa-solid fa-chart-pie"></i> Visual Insights</button>
+            <button class="toggle-btn" id="btnSingleCatData" onclick="setSingleCategoryTab('data')"><i class="fa-solid fa-table"></i> Raw Store Sheet</button>
+          </div>
+          <button onclick="closeSingleCategoryVisualModal()" class="btn-close">&times;</button>
+        </div>
+      </div>
+
+      <div class="modal-body" style="padding: 18px;">
+        
+        <!-- Tab 1: Visual Insights -->
+        <div id="singleCatViewVisuals">
+          <!-- Summary Banner -->
+          <div style="display: flex; gap: 16px; align-items: center; justify-content: space-between; background: rgba(15,23,42,0.6); padding: 12px 18px; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 16px;">
+            <div style="font-size: 12.5px; color: var(--text-secondary); max-width: 55%; line-height: 1.4;">
+              <strong style="color: #22D3EE;"><i class="fa-solid fa-lightbulb"></i> Cross-Sell Strategy:</strong>
+              These retailers buy <strong id="txtSingleCatBannerName" style="color: #FFF;">--</strong> exclusively. Pitching a 2nd category can double revenue from these existing accounts.
+            </div>
+            <div class="modal-stat-cards" id="singleCatStatCards" style="margin: 0; gap: 12px; display: flex;"></div>
+          </div>
+
+          <!-- 2 Visual Charts Side-by-Side -->
+          <div class="modal-charts-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+            <!-- Visual Chart 1: State Network Distribution -->
+            <div class="chart-card">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <h5 style="margin:0;"><i class="fa-solid fa-map-location-dot text-primary"></i> State Network Distribution</h5>
+                <span style="font-size: 10.5px; color: #22D3EE; font-weight: 600;"><i class="fa-solid fa-hand-pointer"></i> Click state bar to filter</span>
+              </div>
+              <div class="chart-container" style="height: 330px;">
+                <canvas id="chartSingleCatStateBar" style="cursor: pointer;"></canvas>
+              </div>
+            </div>
+
+            <!-- Visual Chart 2: Top Mapped Distributors -->
+            <div class="chart-card">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <h5 style="margin:0;"><i class="fa-solid fa-warehouse text-emerald"></i> Mapped Distributors Serving Retailers</h5>
+                <span style="font-size: 10.5px; color: #34D399; font-weight: 600;"><i class="fa-solid fa-hand-pointer"></i> Click partner to inspect card</span>
+              </div>
+              <div class="chart-container" style="height: 330px;">
+                <canvas id="chartSingleCatDistributorBar" style="cursor: pointer;"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <!-- Visual Chart 3: Retailer Scan Leaders (Highest vs Lowest Scanners) -->
+          <div class="chart-card" style="margin-top: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <h5 style="margin:0;"><i class="fa-solid fa-store text-cyan"></i> Retailer Scan Leaders & Volume Performance (Highest vs Lowest Retailers)</h5>
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <select id="selSingleCatRetailerLimit" onchange="renderSingleCategoryCharts()" style="padding: 4px 10px; font-size: 11px; border-radius: 6px; background: #1E293B; color: #FFF; border: 1px solid rgba(6,182,212,0.4); font-weight: 600; cursor: pointer;">
+                  <option value="TOP10" selected>🔥 Top 10 Scanning Retailers</option>
+                  <option value="LOW10">📉 Lowest 10 Scanning Retailers</option>
+                  <option value="TOP15">⭐ Top 15 Retailers</option>
+                  <option value="ALL">🌐 All Retailers</option>
+                </select>
+                <span style="font-size: 10.5px; color: #22D3EE; font-weight: 600;"><i class="fa-solid fa-hand-pointer"></i> Click bar to open store drawer</span>
+              </div>
+            </div>
+            <div class="chart-container" style="height: 330px;">
+              <canvas id="chartSingleCatRetailersBar" style="cursor: pointer;"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 2: Raw Store Sheet -->
+        <div id="singleCatViewData" style="display: none;">
+          <div class="modal-actions" style="display: flex; justify-content: space-between; gap: 12px; margin-bottom: 12px;">
+            <div class="search-input-wrapper" style="flex: 1;">
+              <input type="text" id="txtSingleCatSearch" placeholder="Search retailers by name, mobile, city, state, or distributor..." oninput="renderSingleCategoryTable()" style="width: 100%; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: rgba(0,0,0,0.2); color: #FFF;">
+            </div>
+            <button onclick="exportSingleCategoryExcel()" class="btn-export-sub" style="background: #06B6D4;">
+              <i class="fa-solid fa-file-excel"></i> Export Retailer List
+            </button>
+          </div>
+          <div class="table-container" style="max-height: 420px; overflow-y: auto;">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Retailer ID</th>
+                  <th>Retailer Name</th>
+                  <th>Mobile Number</th>
+                  <th>City</th>
+                  <th>State</th>
+                  <th>Mapped Distributor</th>
+                  <th style="text-align: right;">6M Total Scans</th>
+                </tr>
+              </thead>
+              <tbody id="tblSingleCategoryBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- High Volume State + Category Mix Analysis Modal (Popup) -->
+  <div id="pendingModal" class="modal-overlay">
+    <div class="modal-content" style="max-width: 92%; width: 1250px;">
+      <div class="modal-header">
+        <h3 id="lblPendingModalTitle"><i class="fa-solid fa-layer-group text-purple"></i> Category Growth Opportunity: State-wise Category Mix</h3>
+        <div class="modal-header-controls" style="display: flex; gap: 10px; align-items: center;">
+          <div class="modal-view-toggle">
+            <button class="toggle-btn active" id="btnPendingVisuals"><i class="fa-solid fa-chart-pie"></i> Visual Insights</button>
+            <button class="toggle-btn" id="btnPendingData"><i class="fa-solid fa-table"></i> Raw Sheet</button>
+          </div>
+          <button id="btnClosePending" class="btn-close">&times;</button>
+        </div>
+      </div>
+      <div class="modal-body">
+        <div class="modal-view-visuals" id="pendingViewVisuals">
+          <div class="modal-charts-grid">
+            <div class="chart-card">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <h5 id="titleDoughnutPending" style="margin: 0;"><i class="fa-solid fa-chart-bar text-purple"></i> Category Volume Breakdown (Focus State)</h5>
+                <span class="badge" style="background: rgba(139,92,246,0.18); color: #C4B5FD; font-size: 11px;">Opportunity Mix</span>
+              </div>
+              <div class="modal-stat-cards" id="pendingStatCards" style="margin-bottom: 12px;"></div>
+              <div class="chart-container" style="height: 340px; position: relative;">
+                <canvas id="chartPendingModal"></canvas>
+              </div>
+              <div style="margin-top: 10px; font-size: 12px; color: var(--text-secondary); line-height: 1.4; background: rgba(255,255,255,0.03); padding: 8px 12px; border-radius: 6px; border-left: 3px solid #8B5CF6;">
+                <strong style="color: #A78BFA;"><i class="fa-solid fa-circle-info"></i> Category Mix Intelligence:</strong> Pinpoints high-volume territories dominated by a single product line. Cross-selling secondary lines into existing retailers unlock rapid volume growth.
+              </div>
+            </div>
+            <div class="chart-card">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <h5 id="titleBarPending" style="margin: 0;"><i class="fa-solid fa-chart-simple text-cyan"></i> Top States by Volume & Category Mix</h5>
+                <span class="badge" style="background: rgba(6,182,212,0.18); color: #67E8F9; font-size: 11px;"><i class="fa-solid fa-arrow-up-right-from-square"></i> Click State Bar to Open Sheet</span>
+              </div>
+              <div class="chart-container" style="height: 420px; position: relative;">
+                <canvas id="chartPendingBar"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-view-data" id="pendingViewData" style="display: none;">
+          <div class="modal-actions">
+            <div class="search-input-wrapper" style="flex: 1;">
+              <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 12px; color: var(--text-muted);"></i>
+              <input type="text" id="pendingSearch" placeholder="Search by state name, zone, or dominant category..." style="padding-left: 36px; width: 100%;">
+            </div>
+            <button id="btnExportPendingExcel" class="btn-export-sub" style="background: #8B5CF6;">
+              <i class="fa-solid fa-file-excel"></i> Export State Category Matrix
+            </button>
+          </div>
+          <div class="table-container">
+            <table class="data-table" id="tblPendingRetailers">
+              <thead>
+                <tr>
+                  <th>State Name</th>
+                  <th>Zone</th>
+                  <th style="text-align: right;">Total Scans</th>
+                  <th style="text-align: right; color: var(--accent-amber);">Calculated Boxes</th>
+                  <th style="text-align: right;">Active Categories</th>
+                  <th>Dominant Category</th>
+                  <th style="text-align: right;">Dominant Share</th>
+                  <th>Category Mix Status</th>
+                  <th>Growth Recommendation</th>
+                  <th style="text-align: center;">Action</th>
+                </tr>
+              </thead>
+              <tbody id="tblPendingBody">
+                <!-- Rendered dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Distributor Performance Leaderboard Modal (Popup) -->
+  <div id="distributorModal" class="modal-overlay">
+    <div class="modal-content" style="width: 96vw; max-width: 1650px; height: 92vh; display: flex; flex-direction: column;">
+      <div class="modal-header" style="padding: 16px 24px;">
+        <h3><i class="fa-solid fa-building-circle-check text-indigo"></i> Channel Partner & Distributor Performance Leaderboard</h3>
+        <div class="modal-header-controls" style="display: flex; gap: 12px; align-items: center;">
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <label style="font-size: 11px; color: var(--text-muted);">State:</label>
+            <select id="selDistributorFilterState" onchange="onDistributorStateChange()" style="padding: 6px 10px; font-size: 12px; border-radius: 6px; border: 1px solid var(--border-color); background: rgba(0,0,0,0.4); color: #FFF;">
+              <option value="ALL">All States (323 Distributors)</option>
+            </select>
+            <label style="font-size: 11px; color: var(--text-muted);">District/City:</label>
+            <select id="selDistributorFilterCity" onchange="renderDistributorModalVisuals()" style="padding: 6px 10px; font-size: 12px; border-radius: 6px; border: 1px solid var(--border-color); background: rgba(0,0,0,0.4); color: #FFF;">
+              <option value="ALL">All Districts / Cities</option>
+            </select>
+            <select id="selDistributorFilterLimit" onchange="renderDistributorModalVisuals()" style="padding: 6px 10px; font-size: 12px; border-radius: 6px; border: 1px solid var(--border-color); background: rgba(0,0,0,0.4); color: #FFF;">
+              <option value="5">Top 5 Distributors</option>
+              <option value="15" selected>Top 15 Distributors</option>
+              <option value="ALL">All Distributors</option>
+            </select>
+            <input type="text" id="txtDistributorFilterSearch" placeholder="Search distributor..." oninput="renderDistributorModalVisuals()" style="padding: 6px 10px; font-size: 12px; border-radius: 6px; border: 1px solid var(--border-color); background: rgba(0,0,0,0.4); color: #FFF; width: 160px;">
+            <button onclick="clearAllDistributorFilters()" class="btn-sub" style="padding: 6px 12px; font-size: 11px; background: rgba(239,68,68,0.15); color: #FCA5A5; border: 1px solid rgba(239,68,68,0.3); border-radius: 6px;">
+              <i class="fa-solid fa-filter-circle-xmark"></i> Clear Filters
+            </button>
+          </div>
+          <div class="modal-view-toggle">
+            <button class="toggle-btn active" id="btnDistributorVisuals" onclick="switchDistributorModalTab('visuals')"><i class="fa-solid fa-chart-pie"></i> Visual Insights</button>
+            <button class="toggle-btn" id="btnDistributorData" onclick="switchDistributorModalTab('data')"><i class="fa-solid fa-table"></i> Raw Sheet</button>
+          </div>
+          <button id="btnCloseDistributor" onclick="closeDistributorModal()" class="btn-close">&times;</button>
+        </div>
+      </div>
+      <div class="modal-body" style="flex: 1; overflow-y: auto; padding: 16px 24px;">
+        <div class="modal-view-visuals" id="distributorViewVisuals">
+          <!-- Top Stat Cards Row (Frozen/Sticky) -->
+          <div style="position: sticky; top: 0; z-index: 15; background: var(--bg-card, #0F172A); padding-top: 4px; padding-bottom: 12px; margin-bottom: 16px; border-bottom: 1px solid rgba(255,255,255,0.08);">
+            <div class="modal-stat-cards" id="distributorStatCards" style="grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 0;"></div>
+          </div>
+
+          <!-- Full Width Spacious Chart -->
+          <div class="chart-card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+              <h5 id="titleBarDistributor" style="margin:0;"><i class="fa-solid fa-chart-column text-indigo"></i> Distributor Performance & Volume Ranking</h5>
+              <span id="lblDistributorPageInfo" style="font-size: 11px; color: #93C5FD;"><i class="fa-solid fa-hand-pointer"></i> Click any distributor bar to open full partner deep-dive report</span>
+            </div>
+            <div class="chart-container" style="height: 480px;">
+              <canvas id="chartDistributorBar"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-view-data" id="distributorViewData" style="display: none;">
+          <div class="modal-actions">
+            <div class="search-input-wrapper" style="flex: 1;">
+              <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 12px; color: var(--text-muted);"></i>
+              <input type="text" id="distributorSearch" placeholder="Search by distributor name, state, or city..." oninput="renderDistributorModalTable()" style="padding-left: 36px; width: 100%;">
+            </div>
+            <button onclick="exportDistributorExcel()" id="btnExportDistributorExcel" class="btn-export-sub" style="background: #6366F1;">
+              <i class="fa-solid fa-file-excel"></i> Export Leaderboard
+            </button>
+          </div>
+          <div class="table-container">
+            <table class="data-table" id="tblDistributorRetailers">
+              <thead>
+                <tr>
+                  <th>Distributor Name</th>
+                  <th>State</th>
+                  <th>City / Zone</th>
+                  <th style="text-align: right;">Total Retailers</th>
+                  <th style="text-align: right;">Active Retailers (6M)</th>
+                  <th style="text-align: right;">Total Scans</th>
+                  <th style="text-align: right;">Box Count</th>
+                  <th style="text-align: right;">Action</th>
+                </tr>
+              </thead>
+              <tbody id="tblDistributorBody">
+                <!-- Rendered dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Single Distributor Detail Modal (Full-Screen Partner Deep-Dive) -->
+  <div id="singleDistributorModal" class="modal-overlay" style="z-index: 1200;">
+    <div class="modal-content" style="width: 96vw; max-width: 1650px; height: 92vh; display: flex; flex-direction: column;">
+      <div class="modal-header" style="padding: 16px 24px;">
+        <h3 id="lblSingleDistributorTitle"><i class="fa-solid fa-building text-indigo"></i> Partner Intelligence Deep-Dive Breakdown</h3>
+        <div class="modal-header-controls" style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+          <!-- Date Filter & Month Preset Controls -->
+          <div class="date-badge" style="display: flex; gap: 6px; align-items: center; background: rgba(0,0,0,0.3); padding: 4px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); flex-wrap: wrap;">
+            <span style="font-size: 11px; color: var(--text-muted); font-weight: 700; display: flex; align-items: center; gap: 4px;">
+              <i class="fa-solid fa-calendar-days text-primary"></i> Period:
+            </span>
+            <select id="selSingleDistDatePreset" onchange="onSingleDistDatePresetChange(this.value)" style="border: 1px solid rgba(59,130,246,0.4); background: #1E293B; color: #FFF; font-size: 11px; padding: 4px 8px; border-radius: 6px; font-weight: 700; cursor: pointer; outline: none;">
+              <option value="JAN_TILL_DATE" selected>📅 Jan 2026 – Till Date (Full View)</option>
+              <option value="AUG_SEP_2026">📅 Aug 2026 – Till Date</option>
+              <option value="AUG_2026">📅 August 2026</option>
+              <option value="JULY_2026">📅 July 2026</option>
+              <option value="JUNE_2026">📅 June 2026</option>
+              <option value="MAY_2026">📅 May 2026</option>
+              <option value="APRIL_2026">📅 April 2026</option>
+              <option value="MARCH_2026">📅 March 2026</option>
+              <option value="FEB_2026">📅 February 2026</option>
+              <option value="JAN_2026">📅 January 2026</option>
+              <option value="CUSTOM">⚙️ Custom Date Range</option>
+            </select>
+            <div style="display: flex; align-items: center; gap: 4px;">
+              <input type="date" id="singleDistStartDate" value="2026-01-01" min="2026-01-01" max="2026-09-29" onchange="onSingleDistCustomDateChange()" style="border: 1px solid var(--border-color); background: rgba(0,0,0,0.3); color: var(--text-primary); font-size: 11px; padding: 3px 6px; border-radius: 6px; outline: none; cursor: pointer;" />
+              <span style="color: var(--text-muted); font-size: 11px;">to</span>
+              <input type="date" id="singleDistEndDate" value="2026-09-29" min="2026-01-01" max="2026-09-29" onchange="onSingleDistCustomDateChange()" style="border: 1px solid var(--border-color); background: rgba(0,0,0,0.3); color: var(--text-primary); font-size: 11px; padding: 3px 6px; border-radius: 6px; outline: none; cursor: pointer;" />
+            </div>
+          </div>
+          <div class="modal-view-toggle">
+            <button class="toggle-btn active" id="btnSingleDistVisuals" onclick="switchSingleDistView('visuals')"><i class="fa-solid fa-chart-pie"></i> Visual Insights</button>
+            <button class="toggle-btn" id="btnSingleDistData" onclick="switchSingleDistView('data')"><i class="fa-solid fa-table"></i> Raw Data Sheet</button>
+          </div>
+          <button onclick="closeSingleDistributorModal()" class="btn-close">&times;</button>
+        </div>
+      </div>
+      <div class="modal-body" style="flex: 1; overflow-y: auto; padding: 16px 24px;">
+        <!-- Visuals Tab -->
+        <div id="singleDistViewVisuals">
+          <!-- KPI Stat Cards Row (Frozen/Sticky) -->
+          <div style="position: sticky; top: 0; z-index: 15; background: var(--bg-card, #0F172A); padding-top: 4px; padding-bottom: 12px; margin-bottom: 14px; border-bottom: 1px solid rgba(255,255,255,0.08);">
+            <div class="modal-stat-cards" id="singleDistStatCards" style="grid-template-columns: repeat(5, 1fr); gap: 12px; margin: 0;"></div>
+          </div>
+
+          <!-- Highlight Banner: Top Scanned Category -->
+          <div id="singleDistTopCatBanner" style="margin-bottom: 14px;"></div>
+
+          <!-- Dual Visual Charts -->
+          <div class="modal-charts-grid" style="grid-template-columns: 1fr 1fr; gap: 16px;">
+            <div class="chart-card">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <h5 style="margin:0;"><i class="fa-solid fa-layer-group text-purple"></i> Category Performance Ranking</h5>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <select id="selSingleDistCatLimit" onchange="updateSingleDistributorCharts()" style="padding: 4px 10px; font-size: 11px; border-radius: 6px; background: #1E293B; color: #FFF; border: 1px solid rgba(168,85,247,0.4); font-weight: 600; cursor: pointer;">
+                    <option value="TOP10" selected>🔥 Top 10 Categories</option>
+                    <option value="LOW10">📉 Low 10 Categories</option>
+                    <option value="ALL">📊 All Categories</option>
+                  </select>
+                </div>
+              </div>
+              <div class="chart-container" style="height: 360px; position: relative;">
+                <canvas id="chartSingleDistCategory" style="cursor: pointer;"></canvas>
+                <div id="emptySingleDistCategory" style="display: none; position: absolute; inset: 0; align-items: center; justify-content: center; flex-direction: column; text-align: center; padding: 20px; background: rgba(15,23,42,0.6); border-radius: 8px;"></div>
+              </div>
+            </div>
+            <div class="chart-card">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <h5 style="margin:0;"><i class="fa-solid fa-chart-column text-emerald"></i> Retailer Scan Volume Distribution</h5>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <select id="selSingleDistRetLimit" onchange="updateSingleDistributorCharts()" style="padding: 4px 10px; font-size: 11px; border-radius: 6px; background: #1E293B; color: #FFF; border: 1px solid rgba(16,185,129,0.4); font-weight: 600; cursor: pointer;">
+                    <option value="TOP10" selected>🔥 Top 10 Retailers</option>
+                    <option value="LOW10">📉 Low 10 Retailers</option>
+                    <option value="TOP15">⭐ Top 15 Retailers</option>
+                    <option value="ALL">🌐 All Retailers</option>
+                  </select>
+                </div>
+              </div>
+              <div class="chart-container" style="height: 360px; position: relative;">
+                <canvas id="chartSingleDistTopRetailers" style="cursor: pointer;"></canvas>
+                <div id="emptySingleDistRetailers" style="display: none; position: absolute; inset: 0; align-items: center; justify-content: center; flex-direction: column; text-align: center; padding: 20px; background: rgba(15,23,42,0.6); border-radius: 8px;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Raw Data Tab -->
+        <div id="singleDistViewData" style="display: none;">
+          <div class="modal-actions" style="display: flex; justify-content: space-between; gap: 12px; margin-bottom: 12px;">
+            <div class="search-input-wrapper" style="flex: 1;">
+              <input type="text" id="txtSingleDistSearch" placeholder="Search retailers under this distributor..." oninput="renderSingleDistributorTable()" style="width: 100%; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: rgba(0,0,0,0.2); color: #FFF;">
+            </div>
+            <button onclick="exportSingleDistributorExcel()" class="btn-export-sub" style="background: #10B981;">
+              <i class="fa-solid fa-file-excel"></i> Export Retailer List
+            </button>
+          </div>
+          <div class="table-container" style="max-height: 420px; overflow-y: auto;">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Retailer ID</th>
+                  <th>Retailer Name</th>
+                  <th>Mobile Number</th>
+                  <th>City</th>
+                  <th style="text-align: right;" id="thSingleDistScans">Total Scans</th>
+                  <th style="text-align: right;" id="thSingleDistBoxes">Box Count</th>
+                  <th style="color: #60A5FA;">📅 Last Scan Date</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="tblSingleDistributorBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; border-top: 1px solid var(--border-color);">
+        <span style="font-size: 11px; color: var(--text-muted);"><i class="fa-solid fa-circle-info"></i> Closing this popup returns you to the exact same page.</span>
+        <button onclick="closeSingleDistributorModal()" class="btn btn-secondary"><i class="fa-solid fa-xmark"></i> Close & Return to Page</button>
+      </div>
+    </div>
+  </div>
+
+  
+  <!-- Active Retailers Modal (Popup) -->
+  <div id="activeRetailersModal" class="modal-overlay">
+    <div class="modal-content" style="max-width: 92%; width: 1150px;">
+      <div class="modal-header" style="padding: 16px 24px;">
+        <h3 id="lblActiveModalHeaderTitle"><i class="fa-solid fa-store text-emerald"></i> Active Retailers Analysis — Retailers Scanning in Selected Period</h3>
+        <div class="modal-header-controls" style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+          <!-- Date Filter & Month Preset Controls -->
+          <div class="date-badge" style="display: flex; gap: 6px; align-items: center; background: rgba(0,0,0,0.3); padding: 4px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); flex-wrap: wrap;">
+            <span style="font-size: 11px; color: var(--text-muted); font-weight: 700; display: flex; align-items: center; gap: 4px;">
+              <i class="fa-solid fa-calendar-days text-primary"></i> Period:
+            </span>
+            <select id="selActiveDatePreset" onchange="onActiveDatePresetChange(this.value)" style="border: 1px solid rgba(59,130,246,0.4); background: #1E293B; color: #FFF; font-size: 11px; padding: 4px 8px; border-radius: 6px; font-weight: 700; cursor: pointer; outline: none;">
+              <option value="JAN_TILL_DATE" selected>📅 Jan 2026 – Till Date (Full View)</option>
+              <option value="AUG_SEP_2026">📅 Aug 2026 – Till Date</option>
+              <option value="AUG_2026">📅 August 2026</option>
+              <option value="JULY_2026">📅 July 2026</option>
+              <option value="JUNE_2026">📅 June 2026</option>
+              <option value="MAY_2026">📅 May 2026</option>
+              <option value="APRIL_2026">📅 April 2026</option>
+              <option value="MARCH_2026">📅 March 2026</option>
+              <option value="FEB_2026">📅 February 2026</option>
+              <option value="JAN_2026">📅 January 2026</option>
+              <option value="CUSTOM">⚙️ Custom Date Range</option>
+            </select>
+            <div style="display: flex; align-items: center; gap: 4px;">
+              <input type="date" id="activeStartDate" value="2026-01-01" min="2026-01-01" max="2026-09-29" onchange="onActiveCustomDateChange()" style="border: 1px solid var(--border-color); background: rgba(0,0,0,0.3); color: var(--text-primary); font-size: 11px; padding: 3px 6px; border-radius: 6px; outline: none; cursor: pointer;" />
+              <span style="color: var(--text-muted); font-size: 11px;">to</span>
+              <input type="date" id="activeEndDate" value="2026-09-29" min="2026-01-01" max="2026-09-29" onchange="onActiveCustomDateChange()" style="border: 1px solid var(--border-color); background: rgba(0,0,0,0.3); color: var(--text-primary); font-size: 11px; padding: 3px 6px; border-radius: 6px; outline: none; cursor: pointer;" />
+            </div>
+          </div>
+          <div class="modal-view-toggle">
+            <button class="toggle-btn active" id="btnActiveVisuals" onclick="toggleActiveModalTab('visuals')"><i class="fa-solid fa-chart-pie"></i> Visual Insights</button>
+            <button class="toggle-btn" id="btnActiveData" onclick="toggleActiveModalTab('data')"><i class="fa-solid fa-table"></i> Raw Sheet</button>
+          </div>
+          <button id="btnCloseActiveRetailers" onclick="closeActiveRetailersModal()" class="btn-close">&times;</button>
+        </div>
+      </div>
+      <div class="modal-body">
+        <div class="modal-view-visuals" id="activeViewVisuals">
+          <div class="chart-card" style="width: 100%;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+              <h5 style="margin: 0;"><i class="fa-solid fa-map-location-dot text-emerald"></i> State-Wise Active Retailer Network Distribution</h5>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 11px; color: var(--text-muted); font-weight: 600;">State Display Filter:</span>
+                <select id="selActiveStateLimit" onchange="renderActiveModalCharts()" style="padding: 5px 12px; font-size: 11.5px; border-radius: 6px; background: #1E293B; color: #FFF; border: 1px solid rgba(16,185,129,0.4); font-weight: 700; cursor: pointer;">
+                  <option value="ALL" selected>🌐 All States (Full India View)</option>
+                  <option value="TOP10">🔥 Top 10 Active States</option>
+                  <option value="LOW10">📉 Low 10 Active States</option>
+                </select>
+              </div>
+            </div>
+            <div style="font-size: 11px; color: #34D399; margin-bottom: 10px;">
+              <i class="fa-solid fa-hand-pointer text-emerald"></i> Click any state bar to drill down directly into that state's active distributor & retailer network!
+            </div>
+            <div class="chart-container" style="height: 420px; position: relative; width: 100%;">
+              <canvas id="chartActiveBar"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-view-data" id="activeViewData" style="display: none;">
+          <div class="modal-actions">
+            <div class="search-input-wrapper" style="flex: 1;">
+              <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 12px; color: var(--text-muted);"></i>
+              <input type="text" id="activeRetailersSearch" oninput="renderActiveModalTable()" placeholder="Search active retailer by name, ID, mobile, city, or state..." style="padding-left: 36px; width: 100%;">
+            </div>
+            <button id="btnExportActiveExcel" onclick="exportActiveExcel()" class="btn-export-sub" style="background: #10B981;">
+              <i class="fa-solid fa-file-excel"></i> Export Active List
+            </button>
+          </div>
+          <div class="table-container">
+            <table class="data-table" id="tblActiveRetailers">
+              <thead>
+                <tr>
+                  <th>Retailer ID</th>
+                  <th>Retailer Name</th>
+                  <th>Mobile Number</th>
+                  <th>City</th>
+                  <th>State</th>
+                  <th style="text-align: right;">Scanned Boxes</th>
+                  <th style="text-align: right;">Total Scans</th>
+                  <th>Loyalty Tier</th>
+                </tr>
+              </thead>
+              <tbody id="tblActiveBody">
+                <!-- Rendered dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+<!-- Bronze Upgrade Target Modal (Popup) [NEW] -->
+  <div id="bronzeModal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div>
+          <h3>Bronze Tier Retailers — Upgrade Potential to Silver (21+ Scans)</h3>
+          <p id="lblBronzeSubtitle" style="font-size: 12px; color: var(--text-secondary); margin: 3px 0 0 0;">Tracking Bronze Retailers out of Total Retailers</p>
+        </div>
+        <div class="modal-header-controls">
+          <div class="modal-view-toggle">
+            <button class="toggle-btn active" id="btnBronzeVisuals"><i class="fa-solid fa-chart-pie"></i> Visual Insights</button>
+            <button class="toggle-btn" id="btnBronzeData"><i class="fa-solid fa-table"></i> Raw Sheet</button>
+          </div>
+          <button id="btnCloseBronze" class="btn-close">&times;</button>
+        </div>
+      </div>
+      <div class="modal-body">
+        <div class="modal-view-visuals" id="bronzeViewVisuals">
+          <div class="modal-charts-grid">
+            <div class="chart-card">
+              <h5>Distribution Overview</h5>
+              <div class="modal-insights-summary" id="bronzeInsights" style="margin:0; border:none; padding:0; background:transparent;">
+          <div class="modal-chart-wrapper">
+            <canvas id="chartBronzeModal"></canvas>
+          </div>
+          <div class="modal-explanation">
+            <h4><i class="fa-solid fa-circle-info" style="color: #F59E0B;"></i> What is "Bronze Upgrade Target"?</h4>
+            <p>These retailers scan between <strong>5 to 20 times per month</strong> (Bronze tier). If each one scans just a <strong>few more times to reach 21 scans</strong>, they upgrade to <strong>Silver tier</strong> — meaning more consistent business. The "Scans to Silver" column shows exactly how many more scans each retailer needs.</p>
+            <div class="legend-items">
+              <div class="legend-item"><span class="legend-dot" style="background: #10B981;"></span><strong>Almost There (1-3 needed):</strong> Just a nudge — send a reminder SMS</div>
+              <div class="legend-item"><span class="legend-dot" style="background: #F59E0B;"></span><strong>Close (4-8 needed):</strong> Offer a small incentive to push them</div>
+              <div class="legend-item"><span class="legend-dot" style="background: #F43F5E;"></span><strong>Needs Work (9-16 needed):</strong> Requires sales team engagement</div>
+            </div>
+            <div class="modal-stat-cards" id="bronzeStatCards"></div>
+          </div>
+        </div>
+      </div>
+            <div class="chart-card">
+              <h5 id="titleBarBronze">Top States for Upgrades</h5>
+              <div class="chart-container">
+                <canvas id="chartBronzeBar"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-view-data" id="bronzeViewData" style="display: none;">
+          <div class="modal-actions">
+            <div class="search-input-wrapper" style="flex: 1;">
+            <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 12px; color: var(--text-muted);"></i>
+            <input type="text" id="bronzeSearch" placeholder="Search by retailer name, mobile, city, state, or category..." style="padding-left: 36px; width: 100%;">
+          </div>
+          <button id="btnExportBronzeExcel" class="btn-export-sub" style="background: var(--accent-amber);">
+            <i class="fa-solid fa-file-excel"></i> Export Bronze List
+          </button>
+        </div>
+        <div id="bronzeTableMetaBanner" style="padding: 6px 12px; font-size: 12px; color: var(--text-secondary); background: rgba(255,255,255,0.03); border-radius: 6px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+          <span id="lblBronzeTableCount">Showing 0 Bronze Retailers</span>
+          <span id="lblBronzeUniverseCount" style="color: #60A5FA;">Total Retailer Base: 17,569 Total Retailers</span>
+        </div>
+        <div class="table-container">
+          <table class="data-table" id="tblBronzeRetailers">
+            <thead>
+              <tr>
+                <th>Retailer ID</th>
+                <th>Retailer Name</th>
+                <th>Mobile Number</th>
+                <th>City</th>
+                <th>State</th>
+                <th style="text-align: right;">Current Scans</th>
+                <th style="text-align: right;">Scans to Silver</th>
+              </tr>
+            </thead>
+            <tbody id="tblBronzeBody">
+              <!-- Rendered dynamically -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+  </div>
+
+  <!-- Retailer Consistency Modal (Popup) [NEW] -->
+  <div id="consistencyModal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Retailer Consistency & Loyalty Analysis</h3>
+        <div class="modal-header-controls">
+          <div class="modal-view-toggle">
+            <button class="toggle-btn active" id="btnConsistencyVisuals"><i class="fa-solid fa-chart-pie"></i> Visual Insights</button>
+            <button class="toggle-btn" id="btnConsistencyData"><i class="fa-solid fa-table"></i> Raw Sheet</button>
+          </div>
+          <button id="btnCloseConsistency" class="btn-close">&times;</button>
+        </div>
+      </div>
+      <div class="modal-body">
+        <div class="modal-view-visuals" id="consistencyViewVisuals">
+          <div class="modal-charts-grid">
+            <div class="chart-card">
+              <h5>Distribution Overview</h5>
+              <div class="modal-insights-summary" id="consistencyInsights" style="margin:0; border:none; padding:0; background:transparent;">
+          <div class="modal-chart-wrapper" style="position: relative; width: 220px; height: 220px; flex: 0 0 220px;">
+            <canvas id="chartConsistencyModal"></canvas>
+          </div>
+          <div class="modal-explanation">
+            <h4><i class="fa-solid fa-circle-info" style="color: #6366F1;"></i> What do the Consistency Tiers mean?</h4>
+            <p>This measures total volume & engagement tiers of each retailer based on <strong>number of scans completed</strong> across July 2026.</p>
+            <div class="legend-items">
+              <div class="legend-item"><span class="legend-dot" style="background: #10B981;"></span><strong>Loyal (50+ scans):</strong> Top high-frequency scanning partners — 50+ total verification scans completed. Protect and reward them.</div>
+              <div class="legend-item"><span class="legend-dot" style="background: #818CF8;"></span><strong>Regular (20-49 scans):</strong> Consistent scanning partners — 20 to 49 total verification scans completed.</div>
+              <div class="legend-item"><span class="legend-dot" style="background: #FBBF24;"></span><strong>Occasional (5-19 scans):</strong> Moderate volume buyers — 5 to 19 verification scans completed.</div>
+              <div class="legend-item"><span class="legend-dot" style="background: #FB7185;"></span><strong>One-Time (1-4 scans):</strong> Trial scanners — 1 to 4 verification scans completed. Highest churn risk.</div>
+            </div>
+            <div class="modal-stat-cards" id="consistencyStatCards"></div>
+          </div>
+        </div>
+      </div>
+            <div class="chart-card">
+              <h5 id="titleBarConsistency">Loyal vs Churn Risk by Region</h5>
+              <div class="chart-container" style="position: relative; width: 100%; height: 320px;">
+                <canvas id="chartConsistencyBar"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-view-data" id="consistencyViewData" style="display: none;">
+          <div class="modal-actions">
+            <div class="search-input-wrapper" style="flex: 1;">
+            <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 12px; color: var(--text-muted);"></i>
+            <input type="text" id="consistencySearch" placeholder="Search by retailer name, mobile, city, state, or tier..." style="padding-left: 36px; width: 100%;">
+          </div>
+          <button id="btnExportConsistencyExcel" class="btn-export-sub" style="background: #6366F1;">
+            <i class="fa-solid fa-file-excel"></i> Export Consistency List
+          </button>
+        </div>
+        <div class="table-container">
+          <table class="data-table" id="tblConsistencyRetailers">
+            <thead>
+              <tr>
+                <th>Retailer ID</th>
+                <th>Retailer Name</th>
+                <th>Mobile Number</th>
+                <th>City</th>
+                <th>State</th>
+                <th style="text-align: right;">Total Scans</th>
+                <th style="text-align: right;">Days Active</th>
+                <th>Consistency Tier</th>
+              </tr>
+            </thead>
+            <tbody id="tblConsistencyBody">
+              <!-- Rendered dynamically -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+  </div>
+
+  <!-- Dormant / All Retailers Performance Modal (Popup) -->
+  <div id="dormantModal" class="modal-overlay">
+    <div class="modal-content" style="max-width: 90%; width: 1000px;">
+      <div class="modal-header">
+        <h3>Retailer Performance & Comparative Run-Rate Analysis (All Retailers)</h3>
+        <div class="modal-header-controls">
+          <div class="modal-view-toggle">
+            <button class="toggle-btn active" id="btnDormantVisuals" onclick="toggleDormantModalTab('visuals')"><i class="fa-solid fa-chart-pie"></i> Visual Insights</button>
+            <button class="toggle-btn" id="btnDormantData" onclick="toggleDormantModalTab('data')"><i class="fa-solid fa-table"></i> Raw Sheet</button>
+          </div>
+          <button id="btnCloseDormant" class="btn-close" onclick="closeDormantModal()">&times;</button>
+        </div>
+      </div>
+      <div class="modal-body">
+        <div class="modal-view-visuals" id="dormantViewVisuals">
+          <div class="chart-card" style="width: 100%;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+              <h5 style="margin: 0;" id="titleBarDormant"><i class="fa-solid fa-map-location-dot text-rose"></i> State-Wise Inactive Retailer Distribution (0 Scans)</h5>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 11px; color: var(--text-muted); font-weight: 600;">State Filter:</span>
+                <select id="selInactiveStateLimit" onchange="renderInactiveModalCharts()" style="padding: 5px 12px; font-size: 11.5px; border-radius: 6px; background: #1E293B; color: #FFF; border: 1px solid rgba(244,63,94,0.4); font-weight: 700; cursor: pointer;">
+                  <option value="ALL" selected>🌐 All States (Full India View)</option>
+                  <option value="TOP10">🔥 Top 10 Inactive States</option>
+                  <option value="LOW10">📉 Low 10 Inactive States</option>
+                </select>
+              </div>
+            </div>
+            <div style="font-size: 11px; color: #FB7185; margin-bottom: 10px;">
+              <i class="fa-solid fa-hand-pointer text-rose"></i> Click any state bar to open state distributor breakdown & inactive win-back sheet!
+            </div>
+            <div class="chart-container" style="height: 420px; position: relative; width: 100%;">
+              <canvas id="chartDormantBar"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-view-data" id="dormantViewData" style="display: none;">
+          <div class="modal-actions">
+            <div class="search-input-wrapper" style="flex: 1;">
+              <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 12px; color: var(--text-muted);"></i>
+              <input type="text" id="dormantSearch" placeholder="Search by retailer name, mobile, city, or state..." style="padding-left: 36px; width: 100%;">
+            </div>
+            <button id="btnExportDormantExcel" class="btn-export-sub" style="background: #6366F1;">
+              <i class="fa-solid fa-file-excel"></i> Export All Retailers List
+            </button>
+          </div>
+          <div class="table-container">
+            <table class="data-table" id="tblDormantRetailers">
+              <thead>
+                <tr>
+                  <th>Retailer ID</th>
+                  <th>Retailer Name</th>
+                  <th>Mobile Number</th>
+                  <th>City</th>
+                  <th>State</th>
+                  <th style="color: #60A5FA;">Mapped Distributor</th>
+                  <th>Last Scan Date</th>
+                  <th style="text-align: center;">Status / Silent Days</th>
+                  <th style="text-align: right;">Scanned Volume</th>
+                  <th style="text-align: center;">Partner Intelligence</th>
+                </tr>
+              </thead>
+              <tbody id="tblDormantBody">
+                <!-- Rendered dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+<!-- Low Penetration State Retailers Modal (Popup) [NEW] -->
+  <div id="lowPenetrationModal" class="modal-overlay">
+    <div class="modal-content" style="max-width: 90%; width: 1000px;">
+      <div class="modal-header">
+        <h3>Retailers in Lowest Penetration State — <span id="lblLowPenetrationStateName">--</span></h3>
+        <div class="modal-header-controls">
+          <button id="btnCloseLowPenetration" class="btn-close">&times;</button>
+        </div>
+      </div>
+      <div class="modal-body">
+        <div class="modal-view-data">
+          <div class="modal-actions">
+            <div class="search-input-wrapper" style="flex: 1;">
+              <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 12px; color: var(--text-muted);"></i>
+              <input type="text" id="lowPenetrationSearch" placeholder="Search by retailer name, ID, mobile, or city..." style="padding-left: 36px; width: 100%;">
+            </div>
+            <button id="btnExportLowPenetrationExcel" class="btn-export-sub" style="background: #F43F5E;">
+              <i class="fa-solid fa-file-excel"></i> Export Retailers List
+            </button>
+          </div>
+          <div class="table-container">
+            <table class="data-table" id="tblLowPenetrationRetailers">
+              <thead>
+                <tr>
+                  <th>Retailer ID</th>
+                  <th>Retailer Name</th>
+                  <th>Mobile Number</th>
+                  <th>City</th>
+                  <th>State</th>
+                  <th style="text-align: right;">Scanned Boxes</th>
+                  <th style="text-align: right;">Total Scans</th>
+                </tr>
+              </thead>
+              <tbody id="tblLowPenetrationBody">
+                <!-- Rendered dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- Highest Diversity State Retailers Modal (Popup) [NEW] -->
+  <div id="highestDiversityModal" class="modal-overlay">
+    <div class="modal-content" style="max-width: 90%; width: 1000px;">
+      <div class="modal-header">
+        <h3>Retailers in Highest Category Diversity State — <span id="lblHighestDiversityStateName">--</span></h3>
+        <div class="modal-header-controls">
+          <button id="btnCloseHighestDiversity" class="btn-close">&times;</button>
+        </div>
+      </div>
+      <div class="modal-body">
+        <div class="modal-view-data">
+          <div class="modal-actions">
+            <div class="search-input-wrapper" style="flex: 1;">
+              <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 12px; color: var(--text-muted);"></i>
+              <input type="text" id="highestDiversitySearch" placeholder="Search by retailer name, ID, mobile, or city..." style="padding-left: 36px; width: 100%;">
+            </div>
+            <button id="btnExportHighestDiversityExcel" class="btn-export-sub" style="background: #6366F1;">
+              <i class="fa-solid fa-file-excel"></i> Export Retailers List
+            </button>
+          </div>
+          <div class="table-container">
+            <table class="data-table" id="tblHighestDiversityRetailers">
+              <thead>
+                <tr>
+                  <th>Retailer ID</th>
+                  <th>Retailer Name</th>
+                  <th>Mobile Number</th>
+                  <th>City</th>
+                  <th>State</th>
+                  <th style="text-align: right;">Unique Categories</th>
+                  <th style="text-align: right;">Scanned Boxes</th>
+                  <th style="text-align: right;">Total Scans</th>
+                </tr>
+              </thead>
+              <tbody id="tblHighestDiversityBody">
+                <!-- Rendered dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- Slide-Out Side Panel (Drawer) for Detailed Raw Scan Data -->
+  <div id="dormantDrawerOverlay" class="drawer-overlay"></div>
+  <div id="dormantSideDrawer" class="side-drawer">
+    <div class="drawer-header">
+      <div class="drawer-header-info">
+        <h3 id="lblDrawerRetailerName">Retailer Raw Scan Details</h3>
+        <div class="drawer-subtitle" id="lblDrawerRetailerMeta">ID: -- | Mobile: -- | City: -- | State: --</div>
+      </div>
+      <button id="btnCloseDormantDrawer" class="btn-close-drawer">&times;</button>
+    </div>
+    <div class="drawer-body">
+      <div class="drawer-stats-grid" id="drawerStatsGrid">
+        <!-- Dynamic Summary Stat Cards -->
+      </div>
+      <div class="drawer-section-header">
+        <h5><i class="fa-solid fa-list-check" style="color: #F43F5E;"></i> Complete Raw Scan Transactions</h5>
+        <button id="btnExportDrawerExcel" class="btn-export-sub" style="background: #F43F5E; font-size: 11px; padding: 5px 12px; border-radius: 6px;">
+          <i class="fa-solid fa-file-excel"></i> Export Scans
+        </button>
+      </div>
+      <div class="drawer-table-container">
+        <table class="data-table" id="tblDrawerScans">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Scan Date & Time</th>
+              <th>Product SKU & Description</th>
+              <th>Category</th>
+              <th>UOM</th>
+              <th style="text-align: right;">Boxes</th>
+              <th>Distributor</th>
+            </tr>
+          </thead>
+          <tbody id="tblDrawerScansBody">
+            <!-- Rendered dynamically -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <!-- Territory Flow Page Modal (Interactive Dedicated Page View) -->
+  <div id="territoryFlowModal" class="modal-overlay">
+    <div class="modal-content" style="width: 96vw; max-width: 1600px; height: 92vh; max-height: 92vh;">
+      <div class="modal-header" style="background: rgba(15, 23, 42, 0.85); padding: 14px 20px;">
+        <div style="display: flex; align-items: center; gap: 14px;">
+          <button id="btnBackTerritoryFlow" class="btn btn-sm btn-outline" style="display: inline-flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.06);">
+            <i class="fa-solid fa-arrow-left"></i> Back to Dashboard
+          </button>
+          <div>
+            <h3 style="font-size: 17px; margin: 0; display: flex; align-items: center; gap: 8px;">
+              <i class="fa-solid fa-sitemap text-primary"></i> Territory Intelligence Flow & Page View
+            </h3>
+            <p style="font-size: 11.5px; color: var(--text-secondary); margin: 2px 0 0 0;">State → District → Zone → Distributor → Retailer multi-level explorer</p>
+          </div>
+        </div>
+
+        <div class="modal-header-controls">
+          <div class="modal-view-toggle">
+            <button class="toggle-btn active" id="btnTerritoryFlowVisuals"><i class="fa-solid fa-layer-group"></i> Flow Cards & Charts</button>
+            <button class="toggle-btn" id="btnTerritoryFlowData"><i class="fa-solid fa-table"></i> Data Sheet</button>
+          </div>
+          <button id="btnCloseTerritoryFlow" class="btn-close">&times;</button>
+        </div>
+      </div>
+
+      <div class="modal-body" style="padding: 16px; gap: 16px; overflow-y: auto;">
+        
+        <!-- Top Control Bar inside Modal Page: Breadcrumbs & Level Pills -->
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; background: var(--bg-card-subtle); padding: 12px 16px; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+            
+            <!-- Breadcrumbs -->
+            <div class="territory-breadcrumb-bar" id="territoryBreadcrumb" style="flex: 1; min-width: 280px; margin: 0;">
+              <!-- Rendered dynamically by JS -->
+            </div>
+
+            <!-- Level Selector Pills -->
+            <div class="territory-level-pills" id="territoryLevelPills" style="display: flex; gap: 6px; flex-wrap: wrap;">
+              <button class="level-pill-btn active" data-level="STATE"><i class="fa-solid fa-map-location-dot"></i> State</button>
+              <button class="level-pill-btn" data-level="DISTRICT"><i class="fa-solid fa-city"></i> District</button>
+              <button class="level-pill-btn" data-level="ZONE"><i class="fa-solid fa-layer-group"></i> Zone</button>
+              <button class="level-pill-btn" data-level="DISTRIBUTOR"><i class="fa-solid fa-warehouse"></i> Distributor</button>
+              <button class="level-pill-btn" data-level="RETAILER"><i class="fa-solid fa-store"></i> Retailer</button>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Visuals View (Cards Grid & Analytics Charts) -->
+        <div class="modal-view-visuals" id="territoryFlowViewVisuals" style="padding: 0;">
+          
+          <div style="margin-bottom: 12px;">
+            <h4 id="territoryFlowCardSectionTitle" style="font-size: 14.5px; font-weight: 700; color: var(--text-primary); margin-bottom: 10px; display: flex; align-items: center; gap: 8px;">
+              <i class="fa-solid fa-grid-2 text-primary"></i> Select a Territory to Drill Down
+            </h4>
+            <!-- Active Level Breakdown Cards Grid -->
+            <div class="territory-flow-cards" id="territoryFlowCards">
+              <!-- Rendered dynamically by JS -->
+            </div>
+          </div>
+
+          <!-- Charts Row inside Territory Page Modal -->
+          <div class="modal-charts-grid" style="margin-top: 16px;">
+            <div class="chart-card">
+              <h5 id="titleTerritoryBar">Territory Volume Breakdown</h5>
+              <div class="chart-container">
+                <canvas id="chartTerritoryFlowBar"></canvas>
+              </div>
+            </div>
+            <div class="chart-card">
+              <h5 id="titleTerritoryPie">Volume Distribution Share</h5>
+              <div class="chart-container">
+                <canvas id="chartTerritoryFlowPie"></canvas>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Data Sheet View -->
+        <div class="modal-view-data" id="territoryFlowViewData" style="display: none; padding: 0;">
+          <div class="modal-actions" style="margin-bottom: 12px;">
+            <div class="search-input-wrapper" style="flex: 1;">
+              <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 12px; color: var(--text-muted);"></i>
+              <input type="text" id="territoryFlowSearch" placeholder="Search state, district, zone, distributor, or retailer..." style="padding-left: 36px; width: 100%;">
+            </div>
+            <button id="btnExportTerritoryFlowExcel" class="btn-export-sub" style="background: var(--brand-primary);">
+              <i class="fa-solid fa-file-excel"></i> Export Territory Data
+            </button>
+          </div>
+          <div class="table-container">
+            <table class="data-table" id="tblTerritoryFlowSheet">
+              <thead>
+                <tr>
+                  <th>Retailer Name</th>
+                  <th>Mobile Number</th>
+                  <th>City / District</th>
+                  <th>State</th>
+                  <th>Zone</th>
+                  <th>Distributor Name</th>
+                  <th>Total Scans</th>
+                  <th class="th-highlight">Calculated Box Units</th>
+                </tr>
+              </thead>
+              <tbody id="tblTerritoryFlowBody">
+                <!-- Rendered dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       INACTIVE RETAILERS INTELLIGENCE MODAL
+  ═══════════════════════════════════════════════════ -->
+  <div class="modal-overlay" id="modalGrowthOpportunity" style="z-index: 1200;">
+    <div class="modal-content" style="width: 95vw; max-width: 1550px; height: 92vh; display: flex; flex-direction: column;">
+      <div class="modal-header" style="padding: 16px 24px;">
+        <div>
+          <h2><i class="fa-solid fa-users-slash" style="color:#F43F5E;"></i> Inactive Retailers Intelligence (State-Wise Breakdown)</h2>
+          <p style="color:var(--text-muted); font-size:13px; margin:0;">State-wise visual breakdown and complete raw data sheet of non-scanning registered retail stores across India.</p>
+        </div>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <button class="toggle-btn active" id="btnGrowthVisuals"><i class="fa-solid fa-chart-bar"></i> Visual Insights</button>
+          <button class="toggle-btn" id="btnGrowthData"><i class="fa-solid fa-table"></i> Raw Sheet & Data</button>
+          <button id="btnCloseGrowth" class="btn-close">&times;</button>
+        </div>
+      </div>
+      <div class="modal-body" style="flex: 1; overflow-y: auto; padding: 16px 24px;">
+        <!-- VISUALS VIEW -->
+        <div id="growthViewVisuals" style="display:block;">
+          <div class="modal-stat-cards" id="growthStatCards" style="margin-bottom:18px;"></div>
+          <div class="modal-charts-grid" style="grid-template-columns: 1fr 1fr; gap: 16px;">
+            <div class="chart-card">
+              <h5><i class="fa-solid fa-ranking-star" style="color:#F43F5E;"></i> State-Wise Inactive Retailers Ranking</h5>
+              <p style="font-size:11px; color:var(--text-muted); margin-bottom:8px;">Shows total non-scanning registered retailers for each state (ranked highest to lowest).</p>
+              <div class="chart-container" style="height:320px;"><canvas id="chartGrowthBar"></canvas></div>
+            </div>
+            <div class="chart-card">
+              <h5><i class="fa-solid fa-chart-scatter" style="color:#FBBF24;"></i> State Retailers vs Activation % Matrix</h5>
+              <p style="font-size:11px; color:var(--text-muted); margin-bottom:8px;">Bubble size = Inactive Retailer Volume. Bottom-right states have the largest inactive stores gap.</p>
+              <div class="chart-container" style="height:320px;"><canvas id="chartGrowthBubble"></canvas></div>
+            </div>
+          </div>
+          <div class="chart-card" style="margin-top:16px;">
+            <h5><i class="fa-solid fa-chart-column" style="color:#10B981;"></i> Active vs Inactive Retailers Ratio — All States</h5>
+            <p style="font-size:11px; color:var(--text-muted); margin-bottom:8px;">Green bars = Active Scanning Retailers. Red bars = Inactive Retailers (Gap).</p>
+            <div class="chart-container" style="height:280px;"><canvas id="chartGrowthGap"></canvas></div>
+          </div>
+          <div id="growthInsightCards" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(240px,1fr)); gap:12px; margin-top:16px;"></div>
+        </div>
+        <!-- RAW DATA VIEW -->
+        <div id="growthViewData" style="display:none;">
+          <!-- Sub-View Switcher (State Summary vs Individual Stores) -->
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; background:rgba(15,23,42,0.6); padding:10px 14px; border-radius:8px; border:1px solid var(--border-color);">
+            <div style="display:flex; gap:10px;">
+              <button id="btnInactiveSubState" class="btn btn-sm btn-primary" style="font-weight:600;"><i class="fa-solid fa-map-location-dot"></i> State Summary Sheet</button>
+              <button id="btnInactiveSubStores" class="btn btn-sm btn-outline" style="font-weight:600;"><i class="fa-solid fa-store-slash"></i> Full Inactive Retailers Raw List</button>
+            </div>
+            <button id="btnExportGrowthExcel" class="btn-export-sub" style="background:#F43F5E;">
+              <i class="fa-solid fa-file-excel"></i> Export Multi-Sheet Excel Workbook
+            </button>
+          </div>
+
+          <div class="modal-actions" style="margin-bottom:12px;">
+            <div class="search-input-wrapper" style="flex:1;">
+              <i class="fa-solid fa-magnifying-glass" style="position:absolute; left:12px; color:var(--text-muted);"></i>
+              <input type="text" id="growthSearch" placeholder="Search state name, retailer name, city, or distributor..." style="padding-left:36px; width:100%;">
+            </div>
+          </div>
+
+          <!-- Table 1: State Summary -->
+          <div id="wrapperInactiveStateTable" class="table-container">
+            <table class="data-table" id="tblGrowthOpportunity">
+              <thead>
+                <tr>
+                  <th>Rank</th>
+                  <th>State Name</th>
+                  <th style="text-align:right;">Total Registered Stores</th>
+                  <th style="text-align:right;">Active Stores</th>
+                  <th style="text-align:right;">Inactive Retailers</th>
+                  <th style="text-align:right;">Activation %</th>
+                  <th style="text-align:right;">Total Scans</th>
+                  <th style="text-align:right;">Box Volume</th>
+                  <th>Priority Tier</th>
+                  <th>Recommended Sales Action</th>
+                </tr>
+              </thead>
+              <tbody id="tbodyGrowthOpportunity"></tbody>
+            </table>
+          </div>
+
+          <!-- Table 2: Raw Store-by-Store Retailer List -->
+          <div id="wrapperInactiveStoresTable" class="table-container" style="display:none;">
+            <table class="data-table" id="tblInactiveStoresRaw">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Retailer Name</th>
+                  <th>Mobile Number</th>
+                  <th>State Name</th>
+                  <th>City / District</th>
+                  <th>Mapped Distributor</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="tbodyInactiveStoresRaw"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- Category Retailer & Packaging Drill-Down Modal (Popup) -->
+  <div id="categoryProductModal" class="modal-overlay" style="z-index: 2500;" onclick="if(event.target===this) closeCategoryProductModal()">
+    <div class="modal-content" style="max-width: 1200px; width: 94vw;">
+      <div class="modal-header">
+        <div>
+          <h2 id="categoryProductModalTitle"><i class="fa-solid fa-boxes-stacked text-purple"></i> Category Retailer & Packaging Breakdown</h2>
+          <p id="categoryProductModalSub" style="color: var(--text-muted); font-size: 13px; margin: 0;">Retailer-level scan volume, B10 (full box) and B5 (half box) packaging breakdown</p>
+        </div>
+        <button id="btnCloseCategoryProduct" class="btn-close" onclick="closeCategoryProductModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <!-- Top KPI Stat Cards -->
+        <div class="modal-stat-cards" id="categoryRetailerStatCards" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 16px;"></div>
+
+        <!-- View Switcher, Packaging Filters & Actions -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+          <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+            <button id="btnCatTabRetailers" class="btn btn-sm btn-primary" onclick="switchCategoryModalTab('retailers')" style="font-weight: 700;">
+              <i class="fa-solid fa-users"></i> Retailer Scans & Packaging (B10 / B5)
+            </button>
+            <button id="btnCatTabProducts" class="btn btn-sm btn-outline" onclick="switchCategoryModalTab('products')" style="font-weight: 600;">
+              <i class="fa-solid fa-box-archive"></i> SKU Products List
+            </button>
+
+            <!-- Packaging Filter Selector (All, B10, B5) -->
+            <div class="cat-pack-filter-group" style="display: inline-flex; align-items: center; background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; padding: 3px; gap: 4px; margin-left: 6px;">
+              <span style="font-size: 11px; font-weight: 700; color: var(--text-muted); padding: 0 6px; text-transform: uppercase; letter-spacing: 0.5px;">Filter:</span>
+              <button id="btnCatPackAll" class="btn-pack-pill active-all" onclick="setCategoryPackagingFilter('ALL')">
+                <i class="fa-solid fa-layer-group"></i> All Packaging
+              </button>
+              <button id="btnCatPackB10" class="btn-pack-pill" onclick="setCategoryPackagingFilter('B10')">
+                <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#818CF8;"></span> B10 Only (Full Box)
+              </button>
+              <button id="btnCatPackB5" class="btn-pack-pill" onclick="setCategoryPackagingFilter('B5')">
+                <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#34D399;"></span> B5 Only (Half Box)
+              </button>
+            </div>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button id="btnExportCategoryRetailerExcel" class="btn-export-sub" style="background: #10B981;" onclick="exportCategoryDrilldownRetailersExcel()">
+              <i class="fa-solid fa-file-excel"></i> <span id="lblExportCategoryRetailerText">Export Retailers Data</span>
+            </button>
+            <button id="btnExportCategoryProductExcel" class="btn-export-sub" style="background: #6366F1; display: none;" onclick="exportCategoryDrilldownProductsExcel()">
+              <i class="fa-solid fa-file-excel"></i> <span id="lblExportCategoryProductText">Export Products List</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="modal-actions" style="margin-bottom: 14px; display: flex; gap: 12px;">
+          <div class="search-input-wrapper" style="flex: 1; position: relative;">
+            <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 12px; color: var(--text-muted); top: 50%; transform: translateY(-50%);"></i>
+            <input type="text" id="categoryProductSearch" placeholder="Search retailer name, mobile, city, distributor, or SKU..." oninput="onCategoryModalSearch()" style="padding-left: 36px; width: 100%;">
+          </div>
+        </div>
+
+        <!-- TAB 1: Retailers Scanning Category (B10 & B5 Breakdown) -->
+        <div id="catModalViewRetailers" class="table-container" style="max-height: 480px; overflow-y: auto;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Retailer Name</th>
+                <th>Mobile Number</th>
+                <th>City / District</th>
+                <th>Mapped Distributor</th>
+                <th id="thCatRetTotalScans" style="text-align: right; color: #60A5FA; cursor: pointer;" onclick="setCategoryPackagingFilter('ALL')" title="Click to view all scans">Total Scans</th>
+                <th id="thCatRetB10Scans" style="text-align: right; color: #818CF8; cursor: pointer;" onclick="setCategoryPackagingFilter('B10')" title="Click to filter by B10 scans only">B10 Scans (Full)</th>
+                <th id="thCatRetB5Scans" style="text-align: right; color: #34D399; cursor: pointer;" onclick="setCategoryPackagingFilter('B5')" title="Click to filter by B5 scans only">B5 Scans (Half)</th>
+                <th style="text-align: right; color: var(--accent-amber);">Calculated Boxes</th>
+                <th style="text-align: right;">Last Scan Date</th>
+              </tr>
+            </thead>
+            <tbody id="tblCategoryRetailerBody">
+              <!-- Rendered dynamically -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- TAB 2: SKU Products List -->
+        <div id="catModalViewProducts" class="table-container" style="max-height: 480px; overflow-y: auto; display: none;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>SKU Code</th>
+                <th>Product Description</th>
+                <th style="text-align: right; color: #818CF8;">B10 Scans (Full)</th>
+                <th style="text-align: right; color: #34D399;">B5 Scans (Half)</th>
+                <th style="text-align: right; color: #60A5FA;">Total Scans</th>
+                <th style="text-align: right; color: var(--accent-amber);">Calculated Boxes</th>
+                <th style="text-align: right;">Unique Retailers</th>
+                <th style="text-align: right;">MRP (₹)</th>
+                <th style="text-align: right;">Unit Price (₹)</th>
+              </tr>
+            </thead>
+            <tbody id="tblCategoryProductBody">
+              <!-- Rendered dynamically -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Category Intelligence Visual Modal -->
+  <div id="categoryVisualDetailModal" class="modal-overlay" style="z-index: 2500;">
+    <div class="modal-content" style="width: 94vw; max-width: 1550px; height: 90vh; display: flex; flex-direction: column;">
+      <div class="modal-header" style="padding: 16px 24px;">
+        <h3 id="lblCategoryVisualTitle"><i class="fa-solid fa-layer-group text-purple"></i> Category Intelligence Analysis</h3>
+        <button onclick="closeCategoryVisualDetailModal()" class="btn-close">&times;</button>
+      </div>
+      <div class="modal-body" style="flex: 1; overflow-y: auto; padding: 16px 24px;">
+        <!-- Sticky Stat Cards -->
+        <div style="position: sticky; top: 0; z-index: 15; background: var(--bg-card, #0F172A); padding-top: 4px; padding-bottom: 12px; margin-bottom: 16px; border-bottom: 1px solid rgba(255,255,255,0.08);">
+          <div class="modal-stat-cards" id="categoryVisualStatCards" style="grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 0;"></div>
+        </div>
+
+        <!-- Dual Visual Charts -->
+        <div class="modal-charts-grid" style="grid-template-columns: 1fr 1fr; gap: 16px;">
+          <div class="chart-card">
+            <h5><i class="fa-solid fa-map-location-dot text-indigo"></i> State-Wise Scan Distribution (Top States)</h5>
+            <div class="chart-container" style="height: 380px;">
+              <canvas id="chartCategoryStateDist"></canvas>
+            </div>
+          </div>
+          <div class="chart-card">
+            <h5><i class="fa-solid fa-store text-emerald"></i> Retailer Volume Ranking (Top Scanning Stores)</h5>
+            <div class="chart-container" style="height: 380px;">
+              <canvas id="chartCategoryRetailerDist"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Single Retailer Intelligence Modal -->
+  <div id="singleRetailerVisualModal" class="modal-overlay" style="z-index: 2500;">
+    <div class="modal-content" style="width: 92vw; max-width: 1450px; height: 88vh; display: flex; flex-direction: column;">
+      <div class="modal-header" style="padding: 16px 24px;">
+        <h3 id="lblSingleRetailerTitle"><i class="fa-solid fa-store text-emerald"></i> Retailer Intelligence Deep-Dive</h3>
+        <button onclick="closeSingleRetailerVisualModal()" class="btn-close">&times;</button>
+      </div>
+      <div class="modal-body" style="flex: 1; overflow-y: auto; padding: 16px 24px;">
+        <!-- Sticky Stat Cards -->
+        <div style="position: sticky; top: 0; z-index: 15; background: var(--bg-card, #0F172A); padding-top: 4px; padding-bottom: 12px; margin-bottom: 16px; border-bottom: 1px solid rgba(255,255,255,0.08);">
+          <div class="modal-stat-cards" id="singleRetailerStatCards" style="grid-template-columns: repeat(5, 1fr); gap: 12px; margin: 0;"></div>
+        </div>
+
+        <!-- Dual Visual Charts -->
+        <div class="modal-charts-grid" style="grid-template-columns: 1fr 1fr; gap: 16px;">
+          <div class="chart-card">
+            <h5><i class="fa-solid fa-boxes-stacked text-purple"></i> Category Mix Breakdown (Categories Scanned)</h5>
+            <div class="chart-container" style="height: 340px;">
+              <canvas id="chartSingleRetailerCategory"></canvas>
+            </div>
+          </div>
+          <div class="chart-card">
+            <h5><i class="fa-solid fa-box text-amber"></i> Packaging Contribution (B10 Full Boxes vs B5 Half Boxes)</h5>
+            <div class="chart-container" style="height: 340px;">
+              <canvas id="chartSingleRetailerPackaging"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- Interactive Visual Date Range Picker Modal (Click to Select Range, Zero Typing) -->
+  <div id="dateRangePickerModal" class="modal-overlay" style="z-index: 3000;">
+    <div class="modal-content" style="max-width: 840px; width: 95vw; display: flex; flex-direction: column;">
+      <div class="modal-header" style="padding: 16px 24px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <h3 style="margin: 0; font-size: 18px; font-weight: 800; color: #FFF; display: flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-calendar-week text-primary"></i> Select Date Range
+          </h3>
+          <p style="color: var(--text-muted); font-size: 12.5px; margin: 4px 0 0 0;">
+            Click any day on the calendar to select Start Date and End Date &mdash; zero typing required!
+          </p>
+        </div>
+        <button onclick="closeDateRangePickerModal()" class="btn-close">&times;</button>
+      </div>
+
+      <div class="date-range-modal-body">
+        <!-- Sidebar: Quick Presets -->
+        <div class="date-presets-sidebar">
+          <div style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 4px;">Quick Month Presets</div>
+          <button class="date-preset-btn" onclick="quickSelectMonthRange('2026-01-01', '2026-09-29', 'JAN_TILL_DATE')">📅 Full Year (Jan–Till Date)</button>
+          <button class="date-preset-btn" onclick="quickSelectMonthRange('2026-08-01', '2026-08-31', 'AUG_2026')">📅 August 2026</button>
+          <button class="date-preset-btn" onclick="quickSelectMonthRange('2026-07-01', '2026-07-31', 'JULY_2026')">📅 July 2026</button>
+          <button class="date-preset-btn" onclick="quickSelectMonthRange('2026-06-01', '2026-06-30', 'JUNE_2026')">📅 June 2026</button>
+          <button class="date-preset-btn" onclick="quickSelectMonthRange('2026-05-01', '2026-05-31', 'MAY_2026')">📅 May 2026</button>
+          <button class="date-preset-btn" onclick="quickSelectMonthRange('2026-04-01', '2026-04-30', 'APRIL_2026')">📅 April 2026</button>
+          <button class="date-preset-btn" onclick="quickSelectMonthRange('2026-03-01', '2026-03-31', 'MARCH_2026')">📅 March 2026</button>
+          <button class="date-preset-btn" onclick="quickSelectMonthRange('2026-02-01', '2026-02-28', 'FEB_2026')">📅 February 2026</button>
+          <button class="date-preset-btn" onclick="quickSelectMonthRange('2026-01-01', '2026-01-31', 'JAN_2026')">📅 January 2026</button>
+        </div>
+
+        <!-- Main Panel: Interactive Calendar -->
+        <div class="calendar-panel">
+          <!-- Month jump pills -->
+          <div class="calendar-month-pills" id="calMonthPills"></div>
+
+          <!-- Month Header with navigation -->
+          <div class="calendar-month-header">
+            <button onclick="navCalMonth(-1)" class="btn btn-sm" style="background: rgba(255,255,255,0.08); color: #FFF; border: 1px solid var(--border-color); padding: 4px 10px; border-radius: 6px; cursor: pointer;">
+              <i class="fa-solid fa-chevron-left"></i> Prev
+            </button>
+            <div id="lblCalCurrentMonth" style="font-weight: 800; font-size: 15px; color: #FFF;">June 2026</div>
+            <button onclick="navCalMonth(1)" class="btn btn-sm" style="background: rgba(255,255,255,0.08); color: #FFF; border: 1px solid var(--border-color); padding: 4px 10px; border-radius: 6px; cursor: pointer;">
+              Next <i class="fa-solid fa-chevron-right"></i>
+            </button>
+          </div>
+
+          <!-- Days of Week Header -->
+          <div class="calendar-grid">
+            <div class="calendar-day-header">Sun</div>
+            <div class="calendar-day-header">Mon</div>
+            <div class="calendar-day-header">Tue</div>
+            <div class="calendar-day-header">Wed</div>
+            <div class="calendar-day-header">Thu</div>
+            <div class="calendar-day-header">Fri</div>
+            <div class="calendar-day-header">Sat</div>
+          </div>
+
+          <!-- Days Grid -->
+          <div class="calendar-grid" id="calDaysGrid"></div>
+
+          <!-- Selection status display -->
+          <div style="background: rgba(15, 23, 42, 0.6); padding: 12px 16px; border-radius: 8px; border: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+            <div>
+              <div style="font-size: 11px; color: var(--text-muted); font-weight: 600;">ACTIVE SELECTION</div>
+              <div id="lblCalSelectedRange" style="font-size: 13.5px; font-weight: 800; color: #60A5FA; margin-top: 2px;">
+                2026-06-01 to 2026-06-30 (30 Days)
+              </div>
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <button onclick="selectCalCurrentWholeMonth()" class="btn btn-sm" style="background: rgba(99,102,241,0.2); color: #A5B4FC; border: 1px solid rgba(99,102,241,0.4); padding: 6px 12px; border-radius: 6px; font-weight: 700; cursor: pointer;">
+                Select Whole Month
+              </button>
+              <button onclick="applyDateRangeSelection()" class="btn btn-sm" style="background: #10B981; color: #FFF; border: none; padding: 6px 18px; border-radius: 6px; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 6px; box-shadow: 0 4px 12px rgba(16,185,129,0.35);">
+                <i class="fa-solid fa-check"></i> Apply Date Range
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- Chart.js, Datalabels, SheetJS & ECharts -->
+  <script src="vendor/chart.min.js"></script>
+  <script src="vendor/chartjs-plugin-datalabels.min.js"></script>
+  <script src="vendor/xlsx.min.js"></script>
+  <script src="vendor/echarts.min.js"></script>
+  <script>if (typeof echarts === 'undefined') { document.write('<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"><\/script>'); }</script>
+  <script src="dashboard_data.js?v=20260928_v3"></script>
+  <script src="app.js?v=20260929_fix10"></script>
 </body>
 </html>
